@@ -1,6 +1,9 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
-use cosmwasm_std::{from_binary, to_binary, Addr, BankMsg, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult, SubMsg, WasmMsg};
+use cosmwasm_std::{
+    from_binary, to_binary, Addr, BankMsg, Binary, Deps, DepsMut, Env, MessageInfo, Response,
+    StdResult, SubMsg, WasmMsg,
+};
 
 use cw2::set_contract_version;
 use cw20::{Balance, Cw20Coin, Cw20CoinVerified, Cw20ExecuteMsg, Cw20ReceiveMsg};
@@ -9,7 +12,7 @@ use crate::error::ContractError;
 use crate::msg::{
     CreateMsg, DetailsResponse, ExecuteMsg, InstantiateMsg, ListResponse, QueryMsg, ReceiveMsg,
 };
-use crate::state::{all_escrow_ids, Escrow, GenericBalance, ESCROWS, Wager, WAGERS, OWNERS};
+use crate::state::{all_escrow_ids, Escrow, GenericBalance, Wager, ESCROWS, OWNERS, WAGERS};
 
 // version info for migration info
 const CONTRACT_NAME: &str = "crates.io:cw20-escrow";
@@ -19,13 +22,16 @@ const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 pub fn instantiate(
     deps: DepsMut,
     _env: Env,
-    info: MessageInfo,
-    _msg: InstantiateMsg,
+    _info: MessageInfo,
+    msg: InstantiateMsg,
 ) -> StdResult<Response> {
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
-    let owner = info.sender;
-    //OWNERS.update() // TODO: add owner to owners map
-    // no setup
+    let owner = msg.sender;
+    OWNERS.update(deps.storage, &"contract_owner", |existing| match existing {
+        None => Ok(owner),
+        Some(_) => Err(ContractError::AlreadyInUse {}),
+    });
+
     Ok(Response::default())
 }
 
@@ -41,47 +47,52 @@ pub fn execute(
             execute_create(deps, msg, Balance::from(info.funds), &info.sender)
         }
         ExecuteMsg::Approve { id } => execute_approve(deps, env, info, id),
-        ExecuteMsg::TopUp { id } => execute_top_up(deps, id, Balance::from(info.funds)), // TODO: figure out Balance::from(info.funds) and why it's used
+        ExecuteMsg::TopUp { id } => execute_top_up(deps, id, Balance::from(info.funds)),
         ExecuteMsg::Refund { id } => execute_refund(deps, env, info, id),
         ExecuteMsg::Receive(msg) => execute_receive(deps, info, msg),
         // TODO: REMOVE ALL ABOVE
 
         //DUEL DOJO FUNCTIONS
-        ExecuteMsg::CreateWager { wager_id} => execute_create_wager(deps, env, &info.sender,  Balance::from(info.funds), wager_id),
-        ExecuteMsg::AddFunds { wager_id} => execute_add_funds(deps, env, &info.sender, Balance::from(info.funds), wager_id),
-        ExecuteMsg::Cancel {wager_id} => execute_cancel(deps, env, info, wager_id),
-        ExecuteMsg::SendFunds {wager_id, winner_address} => execute_send_funds(deps, env, info, wager_id, winner_address),
+        ExecuteMsg::CreateWager { wager_id } => {
+            execute_create_wager(deps, env, &info.sender, Balance::from(info.funds), wager_id)
+        }
+        ExecuteMsg::AddFunds { wager_id } => {
+            execute_add_funds(deps, env, &info.sender, Balance::from(info.funds), wager_id)
+        }
+        ExecuteMsg::Cancel { wager_id } => execute_cancel(deps, env, info, wager_id),
+        ExecuteMsg::SendFunds {
+            wager_id,
+            winner_address,
+        } => execute_send_funds(deps, env, info, wager_id, winner_address),
     }
 }
 
 pub fn execute_create_wager(
-     deps: DepsMut,
-     _env: Env,
-     sender: &Addr,
-     balance: Balance,
+    deps: DepsMut,
+    _env: Env,
+    sender: &Addr,
+    balance: Balance,
     wager_id: String,
 ) -> Result<Response, ContractError> {
-
     let user1_balance = match balance {
         Balance::Native(balance) => GenericBalance {
             native: balance.0,
             cw20: vec![],
         },
-        Balance::Cw20(token) => {
-            GenericBalance {
-                native: vec![],
-                cw20: vec![token],
-            }
-        }
+        Balance::Cw20(token) => GenericBalance {
+            native: vec![],
+            cw20: vec![token],
+        },
     };
 
     //creates wager object
     let wager = Wager {
-        arbiter: deps.api.addr_validate(&"OWNER")?, // TODO: use contract/owner address as arbiter
+        arbiter: deps.api.addr_validate(OWNERS.load(deps.storage, "contract_owner").unwrap().as_str())?,
         user1: sender.clone(),
-        user2: Addr::unchecked("empty"), // TODO: does this need fixing?
+        user2: Addr::unchecked("empty"),
         user1_balance: user1_balance,
-        user2_balance: GenericBalance { // initially empty
+        user2_balance: GenericBalance {
+            // initially empty
             native: vec![],
             cw20: vec![],
         },
@@ -95,7 +106,6 @@ pub fn execute_create_wager(
 
     let res = Response::new().add_attributes(vec![("action", "create"), ("id", wager_id.as_str())]);
     Ok(res)
-
 }
 
 pub fn execute_add_funds(
@@ -105,15 +115,14 @@ pub fn execute_add_funds(
     balance: Balance,
     wager_id: String,
 ) -> Result<Response, ContractError> {
-
     let mut wager = WAGERS.load(deps.storage, &wager_id).unwrap();
 
     if wager.user2 != "empty" {
-        return Err(ContractError::AlreadyInUse {})
+        return Err(ContractError::AlreadyInUse {});
     }
 
-    if balance != Balance::Cw20(wager.user1_balance.cw20[0].clone()) {
-        return Err(ContractError::UnequalBalance {})
+    if balance != Balance::from(wager.user1_balance.cw20[0].clone()) {
+        return Err(ContractError::UnequalBalance {});
     }
 
     wager.user2_balance.add_tokens(balance);
@@ -124,24 +133,24 @@ pub fn execute_add_funds(
         Some(_) => Ok(wager),
     })?;
 
-    let res = Response::new().add_attributes(vec![("action", "add_funds"), ("id", wager_id.as_str())]);
+    let res =
+        Response::new().add_attributes(vec![("action", "add_funds"), ("id", wager_id.as_str())]);
 
     Ok(res)
 }
 
-pub fn execute_cancel( // TODO: Cancel logical function
+pub fn execute_cancel(
     deps: DepsMut,
     _env: Env,
     info: MessageInfo,
     wager_id: String,
 ) -> Result<Response, ContractError> {
-
     let wager = WAGERS.load(deps.storage, &wager_id).unwrap();
 
-    if info.sender != "" || info.sender != wager.user1 { // TODO: equate owner and sender
-        return Err(ContractError::Unauthorized {})
-    } else if wager.user2 != "" { //TODO: check proper comparison of addresses for user2
-        return Err(ContractError::Unauthorized {})
+    if info.sender != "" || info.sender != wager.user1 {
+        return Err(ContractError::Unauthorized {});
+    } else if wager.user2 != "" {
+        return Err(ContractError::Unauthorized {});
     } else {
         // we delete the wager
         WAGERS.remove(deps.storage, &wager_id);
@@ -155,23 +164,21 @@ pub fn execute_cancel( // TODO: Cancel logical function
             .add_attribute("to", wager.user1)
             .add_submessages(messages))
     }
-
 }
 
-pub fn execute_send_funds( // TODO: SendFunds logical function
+pub fn execute_send_funds(
     deps: DepsMut,
     _env: Env,
     info: MessageInfo,
     wager_id: String,
     winner_address: Addr,
 ) -> Result<Response, ContractError> {
-
     let wager = WAGERS.load(deps.storage, &wager_id).unwrap();
 
-    if info.sender != "OWNER" { // TODO: Equate sender to owner
-        return Err(ContractError::Unauthorized {})
+    if info.sender != OWNERS.load(deps.storage, "contract_owner").unwrap().as_str() {
+        return Err(ContractError::Unauthorized {});
     } else if winner_address != wager.user1 || winner_address != wager.user2 {
-        return Err(ContractError::UserDoesNotExist {})
+        return Err(ContractError::UserDoesNotExist {});
     } else {
         // we delete the wager
         WAGERS.remove(deps.storage, &wager_id);
@@ -208,7 +215,6 @@ pub fn execute_receive(
         ReceiveMsg::TopUp { id } => execute_top_up(deps, id, balance),
     }
 }
-
 
 // TODO: delete functions from original escrow template
 pub fn execute_create(
@@ -374,7 +380,8 @@ fn send_tokens(to: &Addr, balance: &GenericBalance) -> StdResult<Vec<SubMsg>> {
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> { //TODO: create query functions
+pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
+    //TODO: create query functions
     match msg {
         QueryMsg::List {} => to_binary(&query_list(deps)?),
         QueryMsg::Details { id } => to_binary(&query_details(deps, id)?),
@@ -422,7 +429,8 @@ fn query_list(deps: Deps) -> StdResult<ListResponse> {
 }
 
 #[cfg(test)]
-mod tests { // TODO: code tests
+mod tests {
+    // TODO: code tests
     use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
     use cosmwasm_std::{coin, coins, CosmosMsg, StdError, Uint128};
 
@@ -435,7 +443,7 @@ mod tests { // TODO: code tests
         let mut deps = mock_dependencies(&[]);
 
         // instantiate an empty contract
-        let instantiate_msg = InstantiateMsg {};
+        let instantiate_msg = InstantiateMsg {sender:Addr::unchecked("".to_string())};
         let info = mock_info(&String::from("anyone"), &[]);
         let res = instantiate(deps.as_mut(), mock_env(), info, instantiate_msg).unwrap();
         assert_eq!(0, res.messages.len());
@@ -500,7 +508,7 @@ mod tests { // TODO: code tests
         let mut deps = mock_dependencies(&[]);
 
         // instantiate an empty contract
-        let instantiate_msg = InstantiateMsg {};
+        let instantiate_msg = InstantiateMsg { sender: Addr::unchecked("".to_string()) };
         let info = mock_info(&String::from("anyone"), &[]);
         let res = instantiate(deps.as_mut(), mock_env(), info, instantiate_msg).unwrap();
         assert_eq!(0, res.messages.len());
@@ -620,7 +628,7 @@ mod tests { // TODO: code tests
         let mut deps = mock_dependencies(&[]);
 
         // instantiate an empty contract
-        let instantiate_msg = InstantiateMsg {};
+        let instantiate_msg = InstantiateMsg { sender: Addr::unchecked("".to_string()) };
         let info = mock_info(&String::from("anyone"), &[]);
         let res = instantiate(deps.as_mut(), mock_env(), info, instantiate_msg).unwrap();
         assert_eq!(0, res.messages.len());

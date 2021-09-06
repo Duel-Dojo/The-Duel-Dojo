@@ -66,7 +66,7 @@ fn escrow_happy_path_cw20_tokens() {
         .instantiate_contract(
             escrow_id,
             owner.clone(),
-            &InstantiateMsg {},
+            &InstantiateMsg { sender: Addr::unchecked("".to_string()) },
             &[],
             "Escrow",
             None,

@@ -1,11 +1,11 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use cosmwasm_std::{Addr, Coin, Env, Order, StdError, StdResult, Storage, Timestamp, HumanAddr};
+use cosmwasm_std::{Addr, Coin, Env, HumanAddr, Order, StdError, StdResult, Storage, Timestamp};
 use cw_storage_plus::Map;
 
+use cosmwasm_storage::{singleton_read, ReadonlySingleton, Singleton};
 use cw20::{Balance, Cw20CoinVerified};
-use cosmwasm_storage::{Singleton, ReadonlySingleton, singleton_read};
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug, Default)]
 pub struct GenericBalance {
@@ -147,7 +147,7 @@ impl Wager {
     // } // TODO: uncomment if we implement end time and human whitelist
 }
 
-pub const OWNERS: Map<&str, Addr> = Map:: new("owner");
+pub const OWNERS: Map<&str, Addr> = Map::new("owner");
 
 pub const WAGERS: Map<&str, Wager> = Map::new("wager");
 
