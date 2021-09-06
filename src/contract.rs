@@ -112,7 +112,7 @@ pub fn execute_add_funds(
         return Err(ContractError::AlreadyInUse {})
     }
 
-    if balance != wager.user1_balance {
+    if balance != Balance::Cw20(wager.user1_balance.cw20[0].clone()) {
         return Err(ContractError::UnequalBalance {})
     }
 
