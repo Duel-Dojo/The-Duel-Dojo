@@ -113,6 +113,7 @@ pub struct Wager {
     /// When end height set and block height exceeds this value, the wager is expired.
     /// Once an escrow is expired, it can be returned to the original funder (via "refund").
     // pub end_height: Option<u64>, // TODO: FIX END TIME AND END HEIGHT
+    // FIX END TIME -> Wager expires 200 blocks AFTER wager is confirmed (20 mins, ~6 secs per block)
     // /// When end time (in seconds since epoch 00:00:00 UTC on 1 January 1970) is set and
     // /// block time exceeds this value, the escrow is expired.
     // /// Once an escrow is expired, it can be returned to the original funder (via "refund").
@@ -123,6 +124,7 @@ pub struct Wager {
     pub user2_balance: GenericBalance,
     // /// All possible contracts that we accept tokens from
     // pub cw20_whitelist: Vec<Addr>, // TODO: WHITELIST?
+    // WHITELIST? -> Only DUEL tokens available for wager 
 }
 
 impl Wager {
