@@ -50,10 +50,9 @@ pub fn execute(
         ExecuteMsg::TopUp { id } => execute_top_up(deps, id, Balance::from(info.funds)),
         ExecuteMsg::Refund { id } => execute_refund(deps, env, info, id),
         ExecuteMsg::Receive(msg) => execute_receive(deps, info, msg),
-    // TODO: REMOVE ALL ABOVE
+        // TODO: REMOVE ALL ABOVE
 
-    //DUEL DOJO FUNCTIONS
-
+        //DUEL DOJO FUNCTIONS
         ExecuteMsg::CreateWager { wager_id } => {
             execute_create_wager(deps, env, &info.sender, Balance::from(info.funds), wager_id)
         }
@@ -67,8 +66,6 @@ pub fn execute(
         } => execute_send_funds(deps, env, info, wager_id, winner_address),
     }
 }
-
-
 
 pub fn execute_create_wager(
     deps: DepsMut,
@@ -90,7 +87,12 @@ pub fn execute_create_wager(
 
     //creates wager object
     let wager = Wager {
-        arbiter: deps.api.addr_validate(OWNERS.load(deps.storage, "contract_owner").unwrap().as_str())?,
+        arbiter: deps.api.addr_validate(
+            OWNERS
+                .load(deps.storage, "contract_owner")
+                .unwrap()
+                .as_str(),
+        )?,
         user1: sender.clone(),
         user2: Addr::unchecked("empty"),
         user1_balance: user1_balance,
@@ -178,7 +180,12 @@ pub fn execute_send_funds(
 ) -> Result<Response, ContractError> {
     let wager = WAGERS.load(deps.storage, &wager_id).unwrap();
 
-    if info.sender != OWNERS.load(deps.storage, "contract_owner").unwrap().as_str() {
+    if info.sender
+        != OWNERS
+            .load(deps.storage, "contract_owner")
+            .unwrap()
+            .as_str()
+    {
         return Err(ContractError::Unauthorized {});
     } else if winner_address != wager.user1 || winner_address != wager.user2 {
         return Err(ContractError::UserDoesNotExist {});
@@ -446,7 +453,9 @@ mod tests {
         let mut deps = mock_dependencies(&[]);
 
         // instantiate an empty contract
-        let instantiate_msg = InstantiateMsg {sender:Addr::unchecked("".to_string())};
+        let instantiate_msg = InstantiateMsg {
+            sender: Addr::unchecked("".to_string()),
+        };
         let info = mock_info(&String::from("anyone"), &[]);
         let res = instantiate(deps.as_mut(), mock_env(), info, instantiate_msg).unwrap();
         assert_eq!(0, res.messages.len());
@@ -511,7 +520,9 @@ mod tests {
         let mut deps = mock_dependencies(&[]);
 
         // instantiate an empty contract
-        let instantiate_msg = InstantiateMsg { sender: Addr::unchecked("".to_string()) };
+        let instantiate_msg = InstantiateMsg {
+            sender: Addr::unchecked("".to_string()),
+        };
         let info = mock_info(&String::from("anyone"), &[]);
         let res = instantiate(deps.as_mut(), mock_env(), info, instantiate_msg).unwrap();
         assert_eq!(0, res.messages.len());
@@ -631,7 +642,9 @@ mod tests {
         let mut deps = mock_dependencies(&[]);
 
         // instantiate an empty contract
-        let instantiate_msg = InstantiateMsg { sender: Addr::unchecked("".to_string()) };
+        let instantiate_msg = InstantiateMsg {
+            sender: Addr::unchecked("".to_string()),
+        };
         let info = mock_info(&String::from("anyone"), &[]);
         let res = instantiate(deps.as_mut(), mock_env(), info, instantiate_msg).unwrap();
         assert_eq!(0, res.messages.len());
