@@ -50,9 +50,10 @@ pub fn execute(
         ExecuteMsg::TopUp { id } => execute_top_up(deps, id, Balance::from(info.funds)),
         ExecuteMsg::Refund { id } => execute_refund(deps, env, info, id),
         ExecuteMsg::Receive(msg) => execute_receive(deps, info, msg),
-        // TODO: REMOVE ALL ABOVE
+    // TODO: REMOVE ALL ABOVE
 
-        //DUEL DOJO FUNCTIONS
+    //DUEL DOJO FUNCTIONS
+
         ExecuteMsg::CreateWager { wager_id } => {
             execute_create_wager(deps, env, &info.sender, Balance::from(info.funds), wager_id)
         }
@@ -66,6 +67,8 @@ pub fn execute(
         } => execute_send_funds(deps, env, info, wager_id, winner_address),
     }
 }
+
+
 
 pub fn execute_create_wager(
     deps: DepsMut,

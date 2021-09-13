@@ -104,12 +104,15 @@ pub fn all_escrow_ids(storage: &dyn Storage) -> StdResult<Vec<String>> {
 // DUEL DOJO CODE BELOW TODO: remove above
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
 pub struct Wager {
-    /// arbiter can decide to approve or refund the escrow
+    /// arbiter can decide to approve or refund the escrow, this is typically the game address
     pub arbiter: Addr,
     /// creator of contract
     pub user1: Addr,
-    /// user that joined the contract
+    /// Player 2 that joined the contract
     pub user2: Addr,
+<<<<<<< HEAD
+    /// Player 1 Balance in Native and Cw20 tokens
+=======
     /// When end height set and block height exceeds this value, the wager is expired.
     /// Once an escrow is expired, it can be returned to the original funder (via "refund").
     // pub end_height: Option<u64>, // TODO: FIX END TIME AND END HEIGHT
@@ -119,12 +122,16 @@ pub struct Wager {
     // /// Once an escrow is expired, it can be returned to the original funder (via "refund").
     // pub end_time: Option<u64>,
     /// Balance in Native and Cw20 tokens
+>>>>>>> master
     pub user1_balance: GenericBalance,
-    /// Balance in Native and Cw20 tokens
+    /// Player 2 Balance in Native and Cw20 tokens
     pub user2_balance: GenericBalance,
+<<<<<<< HEAD
+=======
     // /// All possible contracts that we accept tokens from
     // pub cw20_whitelist: Vec<Addr>, // TODO: WHITELIST?
     // WHITELIST? -> Only DUEL tokens available for wager 
+>>>>>>> master
 }
 
 impl Wager {
