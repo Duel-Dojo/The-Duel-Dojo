@@ -1,10 +1,9 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use cosmwasm_std::{Addr, Coin, Env, HumanAddr, Order, StdError, StdResult, Storage, Timestamp};
+use cosmwasm_std::{Addr, Coin, Order, StdError, StdResult, Storage};
 use cw_storage_plus::Map;
 
-use cosmwasm_storage::{singleton_read, ReadonlySingleton, Singleton};
 use cw20::{Balance, Cw20CoinVerified};
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug, Default)]

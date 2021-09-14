@@ -1,10 +1,9 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use cosmwasm_std::{Addr, Api, Coin, StdResult};
+use cosmwasm_std::{Addr, Api, StdResult};
 
 use crate::state::GenericBalance;
-use cw20::{Balance, Cw20Coin, Cw20ReceiveMsg};
 
 #[derive(Serialize, Deserialize, JsonSchema)]
 pub struct InstantiateMsg {

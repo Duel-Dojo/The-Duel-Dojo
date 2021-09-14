@@ -1,15 +1,15 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    from_binary, to_binary, Addr, BankMsg, Binary, Deps, DepsMut, Env, MessageInfo, Response,
-    StdResult, SubMsg, WasmMsg,
+    to_binary, Addr, BankMsg, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult, SubMsg,
+    WasmMsg,
 };
 
 use cw2::set_contract_version;
-use cw20::{Balance, Cw20Coin, Cw20CoinVerified, Cw20ExecuteMsg, Cw20ReceiveMsg};
+use cw20::{Balance, Cw20ExecuteMsg};
 
 use crate::error::ContractError;
-use crate::msg::{CreateMsg, DetailsResponse, ExecuteMsg, InstantiateMsg, ListResponse, QueryMsg};
+use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
 use crate::state::{GenericBalance, Wager, OWNERS, WAGERS};
 
 // version info for migration info
@@ -25,10 +25,12 @@ pub fn instantiate(
 ) -> StdResult<Response> {
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
     let owner = msg.sender;
-    OWNERS.update(deps.storage, &"contract_owner", |existing| match existing {
-        None => Ok(owner),
-        Some(_) => Err(ContractError::AlreadyInUse {}),
-    });
+    OWNERS
+        .update(deps.storage, &"contract_owner", |existing| match existing {
+            None => Ok(owner),
+            Some(_) => Err(ContractError::AlreadyInUse {}),
+        })
+        .ok();
 
     Ok(Response::default())
 }
@@ -84,7 +86,7 @@ pub fn execute_create_wager(
         )?,
         user1: sender.clone(),
         user2: Addr::unchecked("empty"),
-        user1_balance: user1_balance,
+        user1_balance,
         user2_balance: GenericBalance {
             // initially empty
             native: vec![],
@@ -142,7 +144,7 @@ pub fn execute_cancel(
     let wager = WAGERS.load(deps.storage, &wager_id).unwrap();
 
     if info.sender != "" || info.sender != wager.user1 || wager.user2 != "" {
-        return Err(ContractError::Unauthorized {});
+        Err(ContractError::Unauthorized {})
     } else {
         // we delete the wager
         WAGERS.remove(deps.storage, &wager_id);
@@ -173,9 +175,9 @@ pub fn execute_send_funds(
             .unwrap()
             .as_str()
     {
-        return Err(ContractError::Unauthorized {});
+        Err(ContractError::Unauthorized {})
     } else if winner_address != wager.user1 || winner_address != wager.user2 {
-        return Err(ContractError::UserDoesNotExist {});
+        Err(ContractError::UserDoesNotExist {})
     } else {
         // we delete the wager
         WAGERS.remove(deps.storage, &wager_id);
@@ -226,7 +228,7 @@ fn send_tokens(to: &Addr, balance: &GenericBalance) -> StdResult<Vec<SubMsg>> {
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
+pub fn query(_deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     //TODO: create query functions
     match msg {}
 }

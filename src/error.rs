@@ -29,4 +29,7 @@ pub enum ContractError {
 
     #[error("Balance sent does not equal to User 1 balance")]
     UnequalBalance {},
+
+    #[error("Unknown contract error")]
+    UnknownError {},
 }
