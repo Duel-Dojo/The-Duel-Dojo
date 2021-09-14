@@ -9,9 +9,7 @@ use cw2::set_contract_version;
 use cw20::{Balance, Cw20Coin, Cw20CoinVerified, Cw20ExecuteMsg, Cw20ReceiveMsg};
 
 use crate::error::ContractError;
-use crate::msg::{
-    CreateMsg, DetailsResponse, ExecuteMsg, InstantiateMsg, ListResponse, QueryMsg,
-};
+use crate::msg::{CreateMsg, DetailsResponse, ExecuteMsg, InstantiateMsg, ListResponse, QueryMsg};
 use crate::state::{GenericBalance, Wager, OWNERS, WAGERS};
 
 // version info for migration info
@@ -143,7 +141,7 @@ pub fn execute_cancel(
 ) -> Result<Response, ContractError> {
     let wager = WAGERS.load(deps.storage, &wager_id).unwrap();
 
-    if info.sender != "" || info.sender != wager.user1 || wager.user2 != ""{
+    if info.sender != "" || info.sender != wager.user1 || wager.user2 != "" {
         return Err(ContractError::Unauthorized {});
     } else {
         // we delete the wager
@@ -230,10 +228,5 @@ fn send_tokens(to: &Addr, balance: &GenericBalance) -> StdResult<Vec<SubMsg>> {
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     //TODO: create query functions
-    match msg {
-
-    }
+    match msg {}
 }
-
-
-

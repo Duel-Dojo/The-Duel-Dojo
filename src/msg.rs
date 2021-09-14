@@ -3,8 +3,8 @@ use serde::{Deserialize, Serialize};
 
 use cosmwasm_std::{Addr, Api, Coin, StdResult};
 
-use cw20::{Balance, Cw20Coin, Cw20ReceiveMsg};
 use crate::state::GenericBalance;
+use cw20::{Balance, Cw20Coin, Cw20ReceiveMsg};
 
 #[derive(Serialize, Deserialize, JsonSchema)]
 pub struct InstantiateMsg {

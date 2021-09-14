@@ -48,8 +48,6 @@ impl GenericBalance {
     }
 }
 
-
-
 // DUEL DOJO CODE BELOW TODO: remove above
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
 pub struct Wager {
