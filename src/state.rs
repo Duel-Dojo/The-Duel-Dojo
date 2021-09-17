@@ -4,12 +4,29 @@ use serde::{Deserialize, Serialize};
 use cosmwasm_std::{Addr, Coin, Order, StdError, StdResult, Storage};
 use cw_storage_plus::Map;
 
+use cosmwasm_storage::{singleton, singleton_read, ReadonlySingleton, Singleton};
 use cw20::{Balance, Cw20CoinVerified};
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug, Default)]
 pub struct GenericBalance {
     pub native: Vec<Coin>,
     pub cw20: Vec<Cw20CoinVerified>,
+}
+
+pub static CONFIG_KEY: &[u8] = b"config";
+
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema)]
+pub struct State {
+    pub creator: Addr,
+    pub owner: Addr,
+}
+
+pub fn config(storage: &mut dyn Storage) -> Singleton<State> {
+    singleton(storage, CONFIG_KEY)
+}
+
+pub fn config_read(storage: &dyn Storage) -> ReadonlySingleton<State> {
+    singleton_read(storage, CONFIG_KEY)
 }
 
 impl GenericBalance {
@@ -96,8 +113,6 @@ impl Wager {
     // } // TODO: uncomment if we implement end time and human whitelist
 }
 
-pub const OWNERS: Map<&str, Addr> = Map::new("owner");
-
 pub const WAGERS: Map<&str, Wager> = Map::new("wager");
 
 /// This returns the list of ids for all registered escrows
@@ -107,3 +122,5 @@ pub fn all_wager_ids(storage: &dyn Storage) -> StdResult<Vec<String>> {
         .map(|k| String::from_utf8(k).map_err(|_| StdError::invalid_utf8("parsing escrow key")))
         .collect()
 }
+
+//TODO: unit tests for state

@@ -85,6 +85,7 @@ pub fn is_valid_name(name: &str) -> bool {
 #[serde(rename_all = "snake_case")]
 pub enum QueryMsg {
     //TODO: query messages
+    Config {},
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
