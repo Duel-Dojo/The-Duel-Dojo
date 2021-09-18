@@ -86,6 +86,7 @@ pub fn is_valid_name(name: &str) -> bool {
 pub enum QueryMsg {
     //TODO: query messages
     Config {},
+    Wager { id: String },
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]

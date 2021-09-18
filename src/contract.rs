@@ -72,7 +72,6 @@ pub fn execute_create_wager(
 
     let state = config(deps.storage).load()?;
 
-    //creates wager object
     let wager = Wager {
         arbiter: state.owner,
         user1: info.sender,
@@ -85,7 +84,6 @@ pub fn execute_create_wager(
         },
     };
 
-    // try to store it, fail if the id was already in use
     WAGERS.update(deps.storage, &wager_id, |existing| match existing {
         None => Ok(wager),
         Some(_) => Err(ContractError::AlreadyInUse {}),
@@ -104,30 +102,16 @@ pub fn execute_add_funds(
 ) -> Result<Response, ContractError> {
     let mut wager = WAGERS.load(deps.storage, &wager_id).unwrap();
 
-    //TODO: disallow user1 to equal to user2
-
-    if wager.user2 != "empty" {
+    if wager.user2 != "empty" || wager.user1 == info.sender {
         return Err(ContractError::AlreadyInUse {});
-    }
-
-    let user2_balance = match balance.clone() {
-        //TODO: rename
-        Balance::Native(balance) => GenericBalance {
-            native: balance.0,
-            cw20: vec![],
-        },
-        Balance::Cw20(token) => GenericBalance {
-            native: vec![],
-            cw20: vec![token],
-        },
-    };
-
-    if user2_balance != wager.user1_balance {
-        return Err(ContractError::UnequalBalance {});
     }
 
     wager.user2_balance.add_tokens(balance);
     wager.user2 = info.sender;
+
+    if wager.user2_balance != wager.user1_balance {
+        return Err(ContractError::UnequalBalance {});
+    }
 
     WAGERS.update(deps.storage, &wager_id, |existing| match existing {
         None => Err(ContractError::WagerDoesNotExist {}),
@@ -147,15 +131,15 @@ pub fn execute_cancel(
     wager_id: String,
 ) -> Result<Response, ContractError> {
     let wager = WAGERS.load(deps.storage, &wager_id).unwrap();
-    // let state = config(deps.storage).load()?;
 
-    if info.sender == "" || info.sender != wager.user1 || wager.user2 != "empty" {
+    if info.sender == ""
+        || (info.sender != wager.user1 && info.sender != wager.arbiter)
+        || wager.user2 != "empty"
+    {
         Err(ContractError::Unauthorized {})
     } else {
-        // we delete the wager
         WAGERS.remove(deps.storage, &wager_id);
 
-        // send all tokens out
         let messages: Vec<SubMsg> = send_tokens(&wager.user1, &wager.user1_balance)?;
 
         Ok(Response::new()
@@ -231,9 +215,9 @@ fn send_tokens(to: &Addr, balance: &GenericBalance) -> StdResult<Vec<SubMsg>> {
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
-    //TODO: create query functions
     match msg {
         QueryMsg::Config {} => to_binary(&query_config(deps)?),
+        QueryMsg::Wager { id } => to_binary(&query_wager_for_id(id, deps)?),
     }
 }
 
@@ -254,8 +238,8 @@ mod tests {
 
     mod instantiate {
         use super::super::*;
-        use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info, MOCK_CONTRACT_ADDR};
-        use cosmwasm_std::{attr, coins, CosmosMsg};
+        use cosmwasm_std::coins;
+        use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
 
         #[test]
         fn test_initialization() {
@@ -263,22 +247,21 @@ mod tests {
             let mut deps = mock_dependencies(&[]);
 
             //check if the initialization works by unwrapping
-            let res = instantiate(deps.as_mut(), mock_env(), info).unwrap();
+            let _initialization_check = instantiate(deps.as_mut(), mock_env(), info).unwrap();
 
             //check if state matches sender
-            let res = query_config(deps.as_ref()).unwrap();
-            assert_eq!("creator", res.creator.as_str());
-            assert_eq!("creator", res.owner.as_str());
-            print!("{}", res.owner.as_str());
+            let res_query_config = query_config(deps.as_ref()).unwrap();
+            assert_eq!("creator", res_query_config.creator.as_str());
+            assert_eq!("creator", res_query_config.owner.as_str());
         }
     }
 
     mod execute {
         use super::super::*;
         use crate::state::all_wager_ids;
-        use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info, MOCK_CONTRACT_ADDR};
-        use cosmwasm_std::{attr, coins, CosmosMsg, Uint128};
-        use cw20::{Cw20Coin, Cw20CoinVerified};
+        use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
+        use cosmwasm_std::{coins, Uint128};
+        use cw20::Cw20CoinVerified;
 
         #[test]
         fn test_execute_create_wager_native() {
@@ -286,23 +269,41 @@ mod tests {
             let mut deps = mock_dependencies(&[]);
 
             //initialize contract_addr
-            let res = instantiate(deps.as_mut(), mock_env(), info.clone()).unwrap();
+            let _res_instantiate = instantiate(deps.as_mut(), mock_env(), info.clone()).unwrap();
 
             let balance = Balance::from(coins(10, "uluna"));
             let wager_id = "test_id";
+            let new_user = mock_info("new_user", &coins(0, "luna"));
 
-            let res = execute_create_wager(
+            let _res_create_wager = execute_create_wager(
                 deps.as_mut(),
                 mock_env(),
-                info,
-                balance,
+                new_user,
+                balance.clone(),
                 wager_id.parse().unwrap(),
             )
             .unwrap();
-            let wagers = all_wager_ids(&deps.storage);
-            let wager = query_wager_for_id("test_id".parse().unwrap(), deps.as_ref());
 
-            // TODO add assertions
+            let wagers = all_wager_ids(&deps.storage).unwrap();
+            let wager = query_wager_for_id(String::from(wager_id), deps.as_ref()).unwrap();
+
+            assert_eq!(1, wagers.len());
+            assert_eq!("creator", wager.arbiter);
+            assert_eq!("new_user", wager.user1);
+            assert_eq!("empty", wager.user2);
+
+            let test_user1_balance = GenericBalance {
+                native: coins(10, "uluna"),
+                cw20: vec![],
+            };
+
+            let test_user2_balance = GenericBalance {
+                native: vec![],
+                cw20: vec![],
+            };
+
+            assert_eq!(test_user1_balance, wager.user1_balance);
+            assert_eq!(test_user2_balance, wager.user2_balance);
         }
 
         #[test]
@@ -311,7 +312,7 @@ mod tests {
             let mut deps = mock_dependencies(&[]);
 
             //initialize contract_addr
-            let res = instantiate(deps.as_mut(), mock_env(), info.clone()).unwrap();
+            let _res = instantiate(deps.as_mut(), mock_env(), info.clone()).unwrap();
 
             let coin = Cw20CoinVerified {
                 address: Addr::unchecked("cw20-token"),
@@ -323,7 +324,7 @@ mod tests {
             let balance = Balance::from(coin);
             let wager_id = "test_id";
 
-            let res = execute_create_wager(
+            let _res_create_wager = execute_create_wager(
                 deps.as_mut(),
                 mock_env(),
                 new_user,
@@ -331,10 +332,29 @@ mod tests {
                 String::from(wager_id),
             )
             .unwrap();
-            let wagers = all_wager_ids(&deps.storage);
-            let wager = query_wager_for_id("test_id".parse().unwrap(), deps.as_ref());
-            print!("{}", "");
-            // TODO add assertions
+            let wagers = all_wager_ids(&deps.storage).unwrap();
+            let wager = query_wager_for_id("test_id".parse().unwrap(), deps.as_ref()).unwrap();
+
+            assert_eq!(1, wagers.len());
+            assert_eq!("creator", wager.arbiter);
+            assert_eq!("new_user", wager.user1);
+            assert_eq!("empty", wager.user2);
+
+            let test_user1_balance = GenericBalance {
+                native: vec![],
+                cw20: vec![Cw20CoinVerified {
+                    address: Addr::unchecked("cw20-token"),
+                    amount: Uint128::new(100),
+                }],
+            };
+
+            let test_user2_balance = GenericBalance {
+                native: vec![],
+                cw20: vec![],
+            };
+
+            assert_eq!(test_user1_balance, wager.user1_balance);
+            assert_eq!(test_user2_balance, wager.user2_balance);
         }
 
         #[test]
@@ -343,7 +363,7 @@ mod tests {
             let mut deps = mock_dependencies(&[]);
 
             //initialize contract_addr
-            let res = instantiate(deps.as_mut(), mock_env(), info.clone()).unwrap();
+            let _res = instantiate(deps.as_mut(), mock_env(), info.clone()).unwrap();
 
             let coin = Cw20CoinVerified {
                 address: Addr::unchecked("cw20-token"),
@@ -355,7 +375,7 @@ mod tests {
             let balance = Balance::from(coin);
             let wager_id = "test_id";
 
-            let res = execute_create_wager(
+            let _res_create_wager = execute_create_wager(
                 deps.as_mut(),
                 mock_env(),
                 new_user.clone(),
@@ -364,19 +384,20 @@ mod tests {
             )
             .unwrap();
 
-            let res = execute_cancel(deps.as_mut(), mock_env(), info, String::from(wager_id));
+            let _res_cancel_fail =
+                execute_cancel(deps.as_mut(), mock_env(), info, String::from(wager_id));
 
-            let res2 = execute_cancel(
+            let _res_cancel_success = execute_cancel(
                 deps.as_mut(),
                 mock_env(),
                 new_user.clone(),
                 String::from(wager_id),
             )
             .unwrap();
+
             let wagers = all_wager_ids(&deps.storage).unwrap();
 
-            print!("{}", "");
-            // TODO add assertions
+            assert_eq!(0, wagers.len());
         }
 
         #[test]
@@ -385,7 +406,7 @@ mod tests {
             let mut deps = mock_dependencies(&[]);
 
             //initialize contract_addr
-            let res = instantiate(deps.as_mut(), mock_env(), info.clone()).unwrap();
+            let _res = instantiate(deps.as_mut(), mock_env(), info.clone()).unwrap();
 
             let coin = Cw20CoinVerified {
                 address: Addr::unchecked("cw20-token"),
@@ -397,7 +418,7 @@ mod tests {
             let balance = Balance::from(coin);
             let wager_id = "test_id";
 
-            let res = execute_create_wager(
+            let _res = execute_create_wager(
                 deps.as_mut(),
                 mock_env(),
                 new_user.clone(),
@@ -415,7 +436,7 @@ mod tests {
 
             let new_user2 = mock_info("new_user", &coins(0, "luna"));
 
-            let res2 = execute_add_funds(
+            let _res2 = execute_add_funds(
                 deps.as_mut(),
                 mock_env(),
                 new_user2.clone(),
@@ -423,7 +444,7 @@ mod tests {
                 String::from(wager_id),
             );
 
-            let wager = query_wager_for_id(String::from(wager_id), deps.as_ref());
+            let _wager = query_wager_for_id(String::from(wager_id), deps.as_ref());
 
             let coin3 = Cw20CoinVerified {
                 address: Addr::unchecked("cw20-token"),
@@ -431,14 +452,13 @@ mod tests {
             };
 
             let balance3 = Balance::from(coin3);
-            let res3 = execute_add_funds(
+            let _res3 = execute_add_funds(
                 deps.as_mut(),
                 mock_env(),
                 new_user2,
                 balance3,
                 String::from(wager_id),
             );
-            print!("{}", "");
             // TODO add assertions
         }
 
@@ -448,7 +468,7 @@ mod tests {
             let mut deps = mock_dependencies(&[]);
 
             //initialize contract_addr
-            let res = instantiate(deps.as_mut(), mock_env(), info.clone()).unwrap();
+            let _res = instantiate(deps.as_mut(), mock_env(), info.clone()).unwrap();
 
             let coin = Cw20CoinVerified {
                 address: Addr::unchecked("cw20-token"),
@@ -460,7 +480,7 @@ mod tests {
             let balance = Balance::from(coin);
             let wager_id = "test_id";
 
-            let res = execute_create_wager(
+            let _res = execute_create_wager(
                 deps.as_mut(),
                 mock_env(),
                 new_user.clone(),
@@ -478,7 +498,7 @@ mod tests {
 
             let new_user2 = mock_info("new_user2", &coins(0, "luna"));
 
-            let res2 = execute_add_funds(
+            let _res_add_funds = execute_add_funds(
                 deps.as_mut(),
                 mock_env(),
                 new_user2,
@@ -486,9 +506,9 @@ mod tests {
                 String::from(wager_id),
             );
 
-            let wager = query_wager_for_id("test_id".parse().unwrap(), deps.as_ref());
+            let _wager = query_wager_for_id("test_id".parse().unwrap(), deps.as_ref());
 
-            let res3 = execute_send_funds(
+            let _res_send_funds_fail = execute_send_funds(
                 deps.as_mut(),
                 mock_env(),
                 new_user.clone(),
@@ -496,7 +516,7 @@ mod tests {
                 new_user.clone().sender,
             );
 
-            let res4 = execute_send_funds(
+            let _res_send_funds_success = execute_send_funds(
                 deps.as_mut(),
                 mock_env(),
                 info,
@@ -504,7 +524,6 @@ mod tests {
                 new_user.sender,
             );
 
-            print!("{}", "");
             // TODO add assertions
         }
     }
