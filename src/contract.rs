@@ -384,8 +384,10 @@ mod tests {
             )
             .unwrap();
 
+            let sneaky_user = mock_info("sneaky_user", &coins(0, "luna"));
+
             let _res_cancel_fail =
-                execute_cancel(deps.as_mut(), mock_env(), info, String::from(wager_id));
+                execute_cancel(deps.as_mut(), mock_env(), sneaky_user, String::from(wager_id));
 
             let _res_cancel_success = execute_cancel(
                 deps.as_mut(),
@@ -434,9 +436,9 @@ mod tests {
 
             let balance2 = Balance::from(coin2);
 
-            let new_user2 = mock_info("new_user", &coins(0, "luna"));
+            let new_user2 = mock_info("new_user2", &coins(0, "luna"));
 
-            let _res2 = execute_add_funds(
+            let _res_add_funds_unsuccessfully = execute_add_funds( //adding funds from user2 with unequal balance
                 deps.as_mut(),
                 mock_env(),
                 new_user2.clone(),
@@ -444,7 +446,29 @@ mod tests {
                 String::from(wager_id),
             );
 
-            let _wager = query_wager_for_id(String::from(wager_id), deps.as_ref());
+            let wager = query_wager_for_id(String::from(wager_id), deps.as_ref()).unwrap();
+            let wagers = all_wager_ids(&deps.storage).unwrap();
+
+            assert_eq!(1, wagers.len());
+            assert_eq!("creator", wager.arbiter);
+            assert_eq!("new_user", wager.user1);
+            assert_eq!("empty", wager.user2);
+
+            let test_user1_balance = GenericBalance {
+                native: vec![],
+                cw20: vec![Cw20CoinVerified {
+                    address: Addr::unchecked("cw20-token"),
+                    amount: Uint128::new(100),
+                }],
+            };
+
+            let test_user2_balance = GenericBalance {
+                native: vec![],
+                cw20: vec![],
+            };
+
+            assert_eq!(test_user1_balance, wager.user1_balance);
+            assert_eq!(test_user2_balance, wager.user2_balance);
 
             let coin3 = Cw20CoinVerified {
                 address: Addr::unchecked("cw20-token"),
@@ -452,14 +476,30 @@ mod tests {
             };
 
             let balance3 = Balance::from(coin3);
-            let _res3 = execute_add_funds(
+            let _res_successfully_add_funds = execute_add_funds(
                 deps.as_mut(),
                 mock_env(),
                 new_user2,
                 balance3,
                 String::from(wager_id),
             );
-            // TODO add assertions
+
+            let wager = query_wager_for_id(String::from(wager_id), deps.as_ref()).unwrap();
+
+            let test_user2_balance = GenericBalance {
+                native: vec![],
+                cw20: vec![Cw20CoinVerified {
+                    address: Addr::unchecked("cw20-token"),
+                    amount: Uint128::new(100),
+                }],
+            };
+            assert_eq!(1, wagers.len());
+            assert_eq!("creator", wager.arbiter);
+            assert_eq!("new_user", wager.user1);
+            assert_eq!("new_user2", wager.user2);
+            assert_eq!(test_user1_balance, wager.user1_balance);
+            assert_eq!(test_user2_balance, wager.user2_balance);
+            assert_eq!(wager.user1_balance, wager.user2_balance);
         }
 
         #[test]
@@ -480,7 +520,7 @@ mod tests {
             let balance = Balance::from(coin);
             let wager_id = "test_id";
 
-            let _res = execute_create_wager(
+            let _res_create_wager = execute_create_wager(
                 deps.as_mut(),
                 mock_env(),
                 new_user.clone(),
