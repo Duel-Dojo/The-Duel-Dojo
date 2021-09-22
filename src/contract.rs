@@ -16,7 +16,7 @@ use crate::state::{config, config_read, GenericBalance, State, Wager, WAGERS};
 const CONTRACT_NAME: &str = "duel-dojo:wager";
 const CONTRACT_VERSION: &str = "0.1";
 
-#[cfg_attr(not(feature = "library"), entry_point)]
+#[entry_point]
 pub fn instantiate(deps: DepsMut, _env: Env, info: MessageInfo) -> StdResult<Response> {
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
     let state = State {
