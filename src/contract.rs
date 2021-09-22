@@ -227,7 +227,7 @@ fn query_config(deps: Deps) -> StdResult<State> {
 }
 
 fn query_wager_for_id(id: String, deps: Deps) -> StdResult<Wager> {
-    let wager = WAGERS.load(deps.storage, &id).unwrap();
+    let wager = WAGERS.load(deps.storage, &id)?;
     Ok(wager)
 }
 
@@ -260,7 +260,7 @@ mod tests {
         use super::super::*;
         use crate::state::all_wager_ids;
         use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
-        use cosmwasm_std::{coins, Uint128};
+        use cosmwasm_std::{coin, coins, CosmosMsg, Uint128};
         use cw20::Cw20CoinVerified;
 
         #[test]
@@ -386,8 +386,12 @@ mod tests {
 
             let sneaky_user = mock_info("sneaky_user", &coins(0, "luna"));
 
-            let _res_cancel_fail =
-                execute_cancel(deps.as_mut(), mock_env(), sneaky_user, String::from(wager_id));
+            let _res_cancel_fail = execute_cancel(
+                deps.as_mut(),
+                mock_env(),
+                sneaky_user,
+                String::from(wager_id),
+            );
 
             let _res_cancel_success = execute_cancel(
                 deps.as_mut(),
@@ -430,7 +434,7 @@ mod tests {
             .unwrap();
 
             let coin2 = Cw20CoinVerified {
-                address: Addr::unchecked("cw30-token"),
+                address: Addr::unchecked("cw20-token"),
                 amount: Uint128::new(99),
             };
 
@@ -438,7 +442,8 @@ mod tests {
 
             let new_user2 = mock_info("new_user2", &coins(0, "luna"));
 
-            let _res_add_funds_unsuccessfully = execute_add_funds( //adding funds from user2 with unequal balance
+            let _res_add_funds_unsuccessfully = execute_add_funds(
+                //adding funds from user2 with unequal balance
                 deps.as_mut(),
                 mock_env(),
                 new_user2.clone(),
@@ -503,21 +508,21 @@ mod tests {
         }
 
         #[test]
-        fn test_execute_send_funds() {
+        fn test_execute_send_funds_cw20() {
             let info = mock_info("creator", &coins(0, "luna"));
             let mut deps = mock_dependencies(&[]);
 
             //initialize contract_addr
             let _res = instantiate(deps.as_mut(), mock_env(), info.clone()).unwrap();
 
-            let coin = Cw20CoinVerified {
+            let coin_test = Cw20CoinVerified {
                 address: Addr::unchecked("cw20-token"),
                 amount: Uint128::new(100),
             };
 
             let new_user = mock_info("new_user", &coins(0, "luna"));
 
-            let balance = Balance::from(coin);
+            let balance = Balance::from(coin_test);
             let wager_id = "test_id";
 
             let _res_create_wager = execute_create_wager(
@@ -556,15 +561,116 @@ mod tests {
                 new_user.clone().sender,
             );
 
-            let _res_send_funds_success = execute_send_funds(
+            let res_send_funds_success = execute_send_funds(
                 deps.as_mut(),
                 mock_env(),
                 info,
                 String::from(wager_id),
-                new_user.sender,
+                new_user.sender.clone(),
+            )
+            .unwrap();
+
+            let _wager = query_wager_for_id("test_id".parse().unwrap(), deps.as_ref());
+            let wagers = all_wager_ids(&deps.storage).unwrap();
+
+            let send_msg = Cw20ExecuteMsg::Transfer {
+                recipient: String::from(new_user.sender),
+                amount: Uint128::new(100),
+            };
+
+            assert_eq!(0, wagers.len());
+            assert_eq!(
+                res_send_funds_success.messages[0],
+                SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+                    contract_addr: String::from("cw20-token"),
+                    msg: to_binary(&send_msg).unwrap(),
+                    funds: vec![],
+                }))
             );
 
-            // TODO add assertions
+            assert_eq!(
+                res_send_funds_success.messages[1],
+                SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+                    contract_addr: String::from("cw20-token"),
+                    msg: to_binary(&send_msg).unwrap(),
+                    funds: vec![],
+                }))
+            );
+        }
+
+        #[test]
+        fn test_execute_send_funds_native() {
+            let info = mock_info("creator", &coins(0, "luna"));
+            let mut deps = mock_dependencies(&[]);
+
+            //initialize contract_addr
+            let _res = instantiate(deps.as_mut(), mock_env(), info.clone()).unwrap();
+
+            let new_user = mock_info("new_user", &coins(0, "luna"));
+
+            let balance = Balance::from(coins(10, "uluna"));
+            let wager_id = "test_id";
+
+            let _res_create_wager = execute_create_wager(
+                deps.as_mut(),
+                mock_env(),
+                new_user.clone(),
+                balance,
+                String::from(wager_id),
+            )
+            .unwrap();
+
+            let balance2 = Balance::from(coins(10, "uluna"));
+
+            let new_user2 = mock_info("new_user2", &coins(0, "luna"));
+
+            let _res_add_funds = execute_add_funds(
+                deps.as_mut(),
+                mock_env(),
+                new_user2,
+                balance2,
+                String::from(wager_id),
+            );
+
+            let _wager = query_wager_for_id("test_id".parse().unwrap(), deps.as_ref());
+
+            let _res_send_funds_fail = execute_send_funds(
+                deps.as_mut(),
+                mock_env(),
+                new_user.clone(),
+                String::from(wager_id),
+                new_user.clone().sender,
+            );
+
+            let res_send_funds_success = execute_send_funds(
+                deps.as_mut(),
+                mock_env(),
+                info,
+                String::from(wager_id),
+                new_user.sender.clone(),
+            )
+            .unwrap();
+
+            let _wager = query_wager_for_id("test_id".parse().unwrap(), deps.as_ref());
+            let wagers = all_wager_ids(&deps.storage).unwrap();
+
+            assert_eq!(0, wagers.len());
+
+            assert_eq!(
+                res_send_funds_success.messages[0],
+                SubMsg::new(CosmosMsg::Bank(BankMsg::Send {
+                    to_address: String::from(new_user.sender.clone()),
+                    amount: vec![coin(10, "uluna")],
+                }))
+            );
+
+            assert_eq!(
+                res_send_funds_success.messages[1],
+                SubMsg::new(CosmosMsg::Bank(BankMsg::Send {
+                    to_address: String::from(new_user.sender.clone()),
+                    amount: vec![coin(10, "uluna")],
+                }))
+            );
         }
     }
 }
