@@ -1,5 +1,3 @@
-#[cfg(not(feature = "library"))]
-use cosmwasm_std::entry_point;
 use cosmwasm_std::{
     to_binary, Addr, BankMsg, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult, SubMsg,
     WasmMsg,
@@ -16,20 +14,16 @@ use crate::state::{config, config_read, GenericBalance, State, Wager, WAGERS};
 const CONTRACT_NAME: &str = "duel-dojo:wager";
 const CONTRACT_VERSION: &str = "0.1";
 
-#[entry_point]
 pub fn instantiate(deps: DepsMut, _env: Env, info: MessageInfo) -> StdResult<Response> {
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
     let state = State {
         creator: info.sender.clone(),
         owner: info.sender,
     };
-
     config(deps.storage).save(&state)?;
-
     Ok(Response::default())
 }
 
-#[cfg_attr(not(feature = "library"), entry_point)]
 pub fn execute(
     deps: DepsMut,
     env: Env,
@@ -213,7 +207,6 @@ fn send_tokens(to: &Addr, balance: &GenericBalance) -> StdResult<Vec<SubMsg>> {
     Ok(msgs)
 }
 
-#[cfg_attr(not(feature = "library"), entry_point)]
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::Config {} => to_binary(&query_config(deps)?),
