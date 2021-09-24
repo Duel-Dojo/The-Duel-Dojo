@@ -30,6 +30,15 @@ pub fn config_read(storage: &dyn Storage) -> ReadonlySingleton<State> {
 }
 
 impl GenericBalance {
+    pub fn new() -> GenericBalance {
+        GenericBalance {
+            native: vec![],
+            cw20: vec![],
+        }
+    }
+}
+
+impl GenericBalance {
     pub fn add_tokens(&mut self, add: Balance) {
         match add {
             Balance::Native(balance) => {
@@ -123,4 +132,86 @@ pub fn all_wager_ids(storage: &dyn Storage) -> StdResult<Vec<String>> {
         .collect()
 }
 
-//TODO: unit tests for state
+//TODO: Add tests for all_wager_ids.
+
+#[cfg(test)]
+mod tests {
+
+    mod constructors {
+        use super::super::*;
+
+        #[test]
+        fn test_new_generic_balance() {
+            let generic_balance = GenericBalance::new();
+            let expected_generic_balance = GenericBalance {
+                native: vec![],
+                cw20: vec![],
+            };
+            assert_eq!(expected_generic_balance, generic_balance);
+        }
+    }
+
+    mod generic_balance {
+        use super::super::*;
+        use cosmwasm_std::{coins, Uint128};
+        use cw20::Cw20CoinVerified;
+
+        #[test]
+        fn test_add_tokens_new_native() {
+            let mut generic_balance = GenericBalance::new();
+            let balance = Balance::from(coins(10, "uluna"));
+            generic_balance.add_tokens(balance);
+            let expected_generic_balance = GenericBalance {
+                native: coins(10, "uluna"),
+                cw20: vec![],
+            };
+            assert_eq!(expected_generic_balance, generic_balance);
+        }
+
+        #[test]
+        fn test_add_tokens_new_cw20() {
+            let mut generic_balance = GenericBalance::new();
+            let cw20 = Cw20CoinVerified {
+                address: Addr::unchecked("cw20-token"),
+                amount: Uint128::new(100),
+            };
+            let balance = Balance::from(cw20.clone());
+            generic_balance.add_tokens(balance);
+            let expected_generic_balance = GenericBalance {
+                native: vec![],
+                cw20: vec![cw20],
+            };
+            assert_eq!(expected_generic_balance, generic_balance);
+        }
+
+        #[test]
+        fn test_add_tokens_existing_native() {
+            let mut generic_balance = GenericBalance {
+                native: coins(10, "uluna"),
+                cw20: vec![],
+            };
+            let balance = Balance::from(coins(10, "uluna"));
+            generic_balance.add_tokens(balance);
+            let expected_generic_balance = GenericBalance {
+                native: coins(20, "uluna"),
+                cw20: vec![],
+            };
+            assert_eq!(expected_generic_balance, generic_balance);
+        }
+
+        #[test]
+        fn test_add_tokens_existing_cw20() {
+            let cw20 = Cw20CoinVerified {
+                address: Addr::unchecked("cw20-token"),
+                amount: Uint128::new(100),
+            };
+            let balance = Balance::from(cw20.clone());
+            let mut generic_balance = GenericBalance {
+                native: vec![],
+                cw20: vec![cw20],
+            };
+            generic_balance.add_tokens(balance);
+            assert_eq!(Uint128::new(200), generic_balance.cw20[0].amount);
+        }
+    }
+}
