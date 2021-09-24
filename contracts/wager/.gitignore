@@ -12,7 +12,7 @@
 
 # IDEs
 *.iml
-.idea
+../../.idea
 
 /artifacts
 
