@@ -3,13 +3,12 @@
   "title": "State",
   "type": "object",
   "required": [
-    "count",
+    "creator",
     "owner"
   ],
   "properties": {
-    "count": {
-      "type": "integer",
-      "format": "int32"
+    "creator": {
+      "$ref": "#/definitions/Addr"
     },
     "owner": {
       "$ref": "#/definitions/Addr"

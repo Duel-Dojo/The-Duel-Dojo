@@ -1,5 +1,5 @@
 use cosmwasm_std::{
-    to_binary, Addr, BankMsg, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult, SubMsg,
+    entry_point, to_binary, Addr, BankMsg, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult, SubMsg,
     WasmMsg,
 };
 
@@ -7,14 +7,15 @@ use cw2::set_contract_version;
 use cw20::{Balance, Cw20ExecuteMsg};
 
 use crate::error::ContractError;
-use crate::msg::{ExecuteMsg, QueryMsg};
+use crate::msg::{ExecuteMsg, QueryMsg, InstantiateMsg};
 use crate::state::{config, config_read, GenericBalance, State, Wager, WAGERS};
 
 // version info for migration info
 const CONTRACT_NAME: &str = "duel-dojo:wager";
 const CONTRACT_VERSION: &str = "0.1";
 
-pub fn instantiate(deps: DepsMut, _env: Env, info: MessageInfo) -> StdResult<Response> {
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn instantiate(deps: DepsMut, _env: Env, info: MessageInfo, _msg: InstantiateMsg) -> StdResult<Response> {
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
     let state = State {
         creator: info.sender.clone(),
@@ -24,6 +25,7 @@ pub fn instantiate(deps: DepsMut, _env: Env, info: MessageInfo) -> StdResult<Res
     Ok(Response::default())
 }
 
+#[cfg_attr(not(feature = "library"), entry_point)]
 pub fn execute(
     deps: DepsMut,
     env: Env,
@@ -207,6 +209,7 @@ fn send_tokens(to: &Addr, balance: &GenericBalance) -> StdResult<Vec<SubMsg>> {
     Ok(msgs)
 }
 
+#[cfg_attr(not(feature = "library"), entry_point)]
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::Config {} => to_binary(&query_config(deps)?),
@@ -239,8 +242,10 @@ mod tests {
             let info = mock_info("creator", &coins(0, "luna"));
             let mut deps = mock_dependencies(&[]);
 
+            inst_msg = InstantiateMsg{ sender: info.clone().sender };
+
             //check if the initialization works by unwrapping
-            let _initialization_check = instantiate(deps.as_mut(), mock_env(), info).unwrap();
+            let _initialization_check = instantiate(deps.as_mut(), mock_env(), info, inst_msg).unwrap();
 
             //check if state matches sender
             let res_query_config = query_config(deps.as_ref()).unwrap();
@@ -261,8 +266,10 @@ mod tests {
             let info = mock_info("creator", &coins(0, "luna"));
             let mut deps = mock_dependencies(&[]);
 
-            //initialize contract_addr
-            let _res_instantiate = instantiate(deps.as_mut(), mock_env(), info.clone()).unwrap();
+            inst_msg = InstantiateMsg{ sender: info.clone().sender };
+
+            //check if the initialization works by unwrapping
+            let _initialization_check = instantiate(deps.as_mut(), mock_env(), info, inst_msg).unwrap();
 
             let balance = Balance::from(coins(10, "uluna"));
             let wager_id = "test_id";
@@ -304,8 +311,10 @@ mod tests {
             let info = mock_info("creator", &coins(0, "luna"));
             let mut deps = mock_dependencies(&[]);
 
-            //initialize contract_addr
-            let _res = instantiate(deps.as_mut(), mock_env(), info.clone()).unwrap();
+            inst_msg = InstantiateMsg{ sender: info.clone().sender };
+
+            //check if the initialization works by unwrapping
+            let _initialization_check = instantiate(deps.as_mut(), mock_env(), info, inst_msg).unwrap();
 
             let coin = Cw20CoinVerified {
                 address: Addr::unchecked("cw20-token"),
@@ -355,8 +364,10 @@ mod tests {
             let info = mock_info("creator", &coins(0, "luna"));
             let mut deps = mock_dependencies(&[]);
 
-            //initialize contract_addr
-            let _res = instantiate(deps.as_mut(), mock_env(), info.clone()).unwrap();
+            inst_msg = InstantiateMsg{ sender: info.clone().sender };
+
+            //check if the initialization works by unwrapping
+            let _initialization_check = instantiate(deps.as_mut(), mock_env(), info, inst_msg).unwrap();
 
             let coin = Cw20CoinVerified {
                 address: Addr::unchecked("cw20-token"),
@@ -404,8 +415,10 @@ mod tests {
             let info = mock_info("creator", &coins(0, "luna"));
             let mut deps = mock_dependencies(&[]);
 
-            //initialize contract_addr
-            let _res = instantiate(deps.as_mut(), mock_env(), info.clone()).unwrap();
+            inst_msg = InstantiateMsg{ sender: info.clone().sender };
+
+            //check if the initialization works by unwrapping
+            let _initialization_check = instantiate(deps.as_mut(), mock_env(), info, inst_msg).unwrap();
 
             let coin = Cw20CoinVerified {
                 address: Addr::unchecked("cw20-token"),
@@ -505,8 +518,10 @@ mod tests {
             let info = mock_info("creator", &coins(0, "luna"));
             let mut deps = mock_dependencies(&[]);
 
-            //initialize contract_addr
-            let _res = instantiate(deps.as_mut(), mock_env(), info.clone()).unwrap();
+            inst_msg = InstantiateMsg{ sender: info.clone().sender };
+
+            //check if the initialization works by unwrapping
+            let _initialization_check = instantiate(deps.as_mut(), mock_env(), info.clone(), inst_msg).unwrap();
 
             let coin_test = Cw20CoinVerified {
                 address: Addr::unchecked("cw20-token"),
@@ -596,8 +611,10 @@ mod tests {
             let info = mock_info("creator", &coins(0, "luna"));
             let mut deps = mock_dependencies(&[]);
 
-            //initialize contract_addr
-            let _res = instantiate(deps.as_mut(), mock_env(), info.clone()).unwrap();
+            inst_msg = InstantiateMsg{ sender: info.clone().sender };
+
+            //check if the initialization works by unwrapping
+            let _initialization_check = instantiate(deps.as_mut(), mock_env(), info.clone(), inst_msg).unwrap();
 
             let new_user = mock_info("new_user", &coins(0, "luna"));
 
