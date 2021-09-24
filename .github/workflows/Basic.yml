@@ -1,74 +1,32 @@
-# Based on https://github.com/actions-rs/example/blob/master/.github/workflows/quickstart.yml
-
+name: Release Artifacts
 on: [push, pull_request]
 
-name: Basic
-
 jobs:
-
-  test:
-    name: Test Suite
+  release-artifacts:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout sources
-        uses: actions/checkout@v2
-
-      - name: Install stable toolchain
+      - uses: actions/checkout@v2
+      - name: Install latest stable
         uses: actions-rs/toolchain@v1
         with:
-          profile: minimal
-          toolchain: 1.51.0
-          target: wasm32-unknown-unknown
-          override: true
-
-      - name: Run unit tests
-        uses: actions-rs/cargo@v1
-        with:
-          command: unit-test
-          args: --locked
-        env:
-          RUST_BACKTRACE: 1
-
-      - name: Compile WASM contract
-        uses: actions-rs/cargo@v1
-        with:
-          command: wasm
-          args: --locked
-        env:
-          RUSTFLAGS: "-C link-arg=-s"
-
-  lints:
-    name: Lints
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout sources
-        uses: actions/checkout@v2
-
-      - name: Install stable toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: 1.51.0
+          toolchain: stable
           override: true
           components: rustfmt, clippy
-
-      - name: Run cargo fmt
-        uses: actions-rs/cargo@v1
-        with:
-          command: fmt
-          args: --all -- --check
-
-      - name: Run cargo clippy
-        uses: actions-rs/cargo@v1
-        with:
-          command: clippy
-          args: -- -D warnings
-
-      # TODO: we should check
-      # CHANGES_IN_REPO=$(git status --porcelain)
-      # after this, but I don't know how
-      - name: Generate Schema
-        uses: actions-rs/cargo@v1
-        with:
-          command: schema
-          args: --locked
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v1
+      - name: Generate Cargo.lock
+        run: |
+          cargo build --workspace
+      - name: Build Artifacts
+        run: |
+          docker run --rm -v "$(pwd)":/code \
+          --mount type=volume,source="$(basename "$(pwd)")_cache",target=/code/target \
+          --mount type=volume,source=registry_cache,target=/usr/local/cargo/registry \
+          cosmwasm/rust-optimizer:0.11.5
+          tar -zcvf cosmwasm-artifacts.tar.gz artifacts
+#       TODO: implement releases
+#      - name: Create Release
+#        uses: softprops/action-gh-release@v1
+#        with:
+#          files: cosmwasm-artifacts.tar.gz
+#          body_path: CHANGELOG.md

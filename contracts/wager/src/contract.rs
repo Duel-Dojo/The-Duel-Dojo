@@ -286,7 +286,7 @@ mod tests {
                 deps.as_mut(),
                 mock_env(),
                 new_user,
-                balance.clone(),
+                balance,
                 wager_id.parse().unwrap(),
             )
             .unwrap();
@@ -404,13 +404,9 @@ mod tests {
                 String::from(wager_id),
             );
 
-            let _res_cancel_success = execute_cancel(
-                deps.as_mut(),
-                mock_env(),
-                new_user.clone(),
-                String::from(wager_id),
-            )
-            .unwrap();
+            let _res_cancel_success =
+                execute_cancel(deps.as_mut(), mock_env(), new_user, String::from(wager_id))
+                    .unwrap();
 
             let wagers = all_wager_ids(&deps.storage).unwrap();
 
@@ -443,7 +439,7 @@ mod tests {
             let _res = execute_create_wager(
                 deps.as_mut(),
                 mock_env(),
-                new_user.clone(),
+                new_user,
                 balance,
                 String::from(wager_id),
             )
@@ -690,7 +686,7 @@ mod tests {
             assert_eq!(
                 res_send_funds_success.messages[1],
                 SubMsg::new(CosmosMsg::Bank(BankMsg::Send {
-                    to_address: String::from(new_user.sender.clone()),
+                    to_address: String::from(new_user.sender),
                     amount: vec![coin(10, "uluna")],
                 }))
             );
