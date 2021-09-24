@@ -78,11 +78,7 @@ pub fn execute_create_wager(
         user1: info.sender,
         user2: Addr::unchecked("empty"),
         user1_balance,
-        user2_balance: GenericBalance {
-            // initially empty
-            native: vec![],
-            cw20: vec![],
-        },
+        user2_balance: GenericBalance::new(),
     };
 
     WAGERS.update(deps.storage, &wager_id, |existing| match existing {
@@ -308,10 +304,7 @@ mod tests {
                 cw20: vec![],
             };
 
-            let test_user2_balance = GenericBalance {
-                native: vec![],
-                cw20: vec![],
-            };
+            let test_user2_balance = GenericBalance::new();
 
             assert_eq!(test_user1_balance, wager.user1_balance);
             assert_eq!(test_user2_balance, wager.user2_balance);
@@ -364,10 +357,7 @@ mod tests {
                 }],
             };
 
-            let test_user2_balance = GenericBalance {
-                native: vec![],
-                cw20: vec![],
-            };
+            let test_user2_balance = GenericBalance::new();
 
             assert_eq!(test_user1_balance, wager.user1_balance);
             assert_eq!(test_user2_balance, wager.user2_balance);
@@ -493,10 +483,7 @@ mod tests {
                 }],
             };
 
-            let test_user2_balance = GenericBalance {
-                native: vec![],
-                cw20: vec![],
-            };
+            let test_user2_balance = GenericBalance::new();
 
             assert_eq!(test_user1_balance, wager.user1_balance);
             assert_eq!(test_user2_balance, wager.user2_balance);
