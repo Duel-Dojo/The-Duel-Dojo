@@ -137,8 +137,10 @@ pub fn all_wager_ids(storage: &dyn Storage) -> StdResult<Vec<String>> {
 #[cfg(test)]
 mod tests {
 
-    mod constructors {
+    mod generic_balance {
         use super::super::*;
+        use cosmwasm_std::{coins, Uint128};
+        use cw20::Cw20CoinVerified;
 
         #[test]
         fn test_new_generic_balance() {
@@ -149,12 +151,6 @@ mod tests {
             };
             assert_eq!(expected_generic_balance, generic_balance);
         }
-    }
-
-    mod generic_balance {
-        use super::super::*;
-        use cosmwasm_std::{coins, Uint128};
-        use cw20::Cw20CoinVerified;
 
         #[test]
         fn test_add_tokens_new_native() {
@@ -192,11 +188,7 @@ mod tests {
             };
             let balance = Balance::from(coins(10, "uluna"));
             generic_balance.add_tokens(balance);
-            let expected_generic_balance = GenericBalance {
-                native: coins(20, "uluna"),
-                cw20: vec![],
-            };
-            assert_eq!(expected_generic_balance, generic_balance);
+            assert_eq!(Uint128::new(20), generic_balance.native[0].amount);
         }
 
         #[test]
@@ -205,11 +197,11 @@ mod tests {
                 address: Addr::unchecked("cw20-token"),
                 amount: Uint128::new(100),
             };
-            let balance = Balance::from(cw20.clone());
             let mut generic_balance = GenericBalance {
                 native: vec![],
-                cw20: vec![cw20],
+                cw20: vec![cw20.clone()],
             };
+            let balance = Balance::from(cw20);
             generic_balance.add_tokens(balance);
             assert_eq!(Uint128::new(200), generic_balance.cw20[0].amount);
         }
