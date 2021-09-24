@@ -242,7 +242,7 @@ mod tests {
             let info = mock_info("creator", &coins(0, "luna"));
             let mut deps = mock_dependencies(&[]);
 
-            inst_msg = InstantiateMsg{ sender: info.clone().sender };
+            let inst_msg = InstantiateMsg{ sender: info.clone().sender };
 
             //check if the initialization works by unwrapping
             let _initialization_check = instantiate(deps.as_mut(), mock_env(), info, inst_msg).unwrap();
@@ -266,7 +266,7 @@ mod tests {
             let info = mock_info("creator", &coins(0, "luna"));
             let mut deps = mock_dependencies(&[]);
 
-            inst_msg = InstantiateMsg{ sender: info.clone().sender };
+            let inst_msg = InstantiateMsg{ sender: info.clone().sender };
 
             //check if the initialization works by unwrapping
             let _initialization_check = instantiate(deps.as_mut(), mock_env(), info, inst_msg).unwrap();
@@ -311,7 +311,7 @@ mod tests {
             let info = mock_info("creator", &coins(0, "luna"));
             let mut deps = mock_dependencies(&[]);
 
-            inst_msg = InstantiateMsg{ sender: info.clone().sender };
+            let inst_msg = InstantiateMsg{ sender: info.clone().sender };
 
             //check if the initialization works by unwrapping
             let _initialization_check = instantiate(deps.as_mut(), mock_env(), info, inst_msg).unwrap();
@@ -364,7 +364,7 @@ mod tests {
             let info = mock_info("creator", &coins(0, "luna"));
             let mut deps = mock_dependencies(&[]);
 
-            inst_msg = InstantiateMsg{ sender: info.clone().sender };
+            let inst_msg = InstantiateMsg{ sender: info.clone().sender };
 
             //check if the initialization works by unwrapping
             let _initialization_check = instantiate(deps.as_mut(), mock_env(), info, inst_msg).unwrap();
@@ -415,7 +415,7 @@ mod tests {
             let info = mock_info("creator", &coins(0, "luna"));
             let mut deps = mock_dependencies(&[]);
 
-            inst_msg = InstantiateMsg{ sender: info.clone().sender };
+            let inst_msg = InstantiateMsg{ sender: info.clone().sender };
 
             //check if the initialization works by unwrapping
             let _initialization_check = instantiate(deps.as_mut(), mock_env(), info, inst_msg).unwrap();
@@ -518,7 +518,7 @@ mod tests {
             let info = mock_info("creator", &coins(0, "luna"));
             let mut deps = mock_dependencies(&[]);
 
-            inst_msg = InstantiateMsg{ sender: info.clone().sender };
+            let inst_msg = InstantiateMsg{ sender: info.clone().sender };
 
             //check if the initialization works by unwrapping
             let _initialization_check = instantiate(deps.as_mut(), mock_env(), info.clone(), inst_msg).unwrap();
@@ -611,7 +611,7 @@ mod tests {
             let info = mock_info("creator", &coins(0, "luna"));
             let mut deps = mock_dependencies(&[]);
 
-            inst_msg = InstantiateMsg{ sender: info.clone().sender };
+            let inst_msg = InstantiateMsg{ sender: info.clone().sender };
 
             //check if the initialization works by unwrapping
             let _initialization_check = instantiate(deps.as_mut(), mock_env(), info.clone(), inst_msg).unwrap();
