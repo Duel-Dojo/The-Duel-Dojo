@@ -97,7 +97,7 @@ pub fn execute_add_funds(
     balance: Balance,
     wager_id: String,
 ) -> Result<Response, ContractError> {
-    let mut wager = WAGERS.load(deps.storage, &wager_id).unwrap();
+    let mut wager = get_wager(&deps, &wager_id)?;
 
     if wager.user2 != "empty" || wager.user1 == info.sender {
         return Err(ContractError::AlreadyInUse {});
@@ -127,12 +127,9 @@ pub fn execute_cancel(
     info: MessageInfo,
     wager_id: String,
 ) -> Result<Response, ContractError> {
-    let wager = WAGERS.load(deps.storage, &wager_id).unwrap();
+    let wager = get_wager(&deps, &wager_id)?;
 
-    if info.sender == ""
-        || (info.sender != wager.user1 && info.sender != wager.arbiter)
-        || wager.user2 != "empty"
-    {
+    if (info.sender != wager.user1 && info.sender != wager.arbiter) || wager.user2 != "empty" {
         Err(ContractError::Unauthorized {})
     } else {
         WAGERS.remove(deps.storage, &wager_id);
@@ -154,7 +151,7 @@ pub fn execute_send_funds(
     wager_id: String,
     winner_address: Addr,
 ) -> Result<Response, ContractError> {
-    let wager = WAGERS.load(deps.storage, &wager_id).unwrap();
+    let wager = get_wager(&deps, &wager_id)?;
     let state = config(deps.storage).load()?;
 
     if info.sender != state.owner {
@@ -176,6 +173,13 @@ pub fn execute_send_funds(
             .add_attribute("to", winner_address)
             .add_submessages(user1_messages)
             .add_submessages(user2_messages))
+    }
+}
+
+fn get_wager(deps: &DepsMut, wager_id: &str) -> Result<Wager, ContractError> {
+    match WAGERS.load(deps.storage, wager_id) {
+        Ok(wager) => Ok(wager),
+        Err(_) => Err(ContractError::WagerDoesNotExist {}),
     }
 }
 
