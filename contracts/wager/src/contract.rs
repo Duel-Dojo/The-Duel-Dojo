@@ -129,10 +129,7 @@ pub fn execute_cancel(
 ) -> Result<Response, ContractError> {
     let wager = get_wager(&deps, &wager_id)?;
 
-    if info.sender == ""
-        || (info.sender != wager.user1 && info.sender != wager.arbiter)
-        || wager.user2 != "empty"
-    {
+    if (info.sender != wager.user1 && info.sender != wager.arbiter) || wager.user2 != "empty" {
         Err(ContractError::Unauthorized {})
     } else {
         WAGERS.remove(deps.storage, &wager_id);
