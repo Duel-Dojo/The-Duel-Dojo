@@ -1,6 +1,6 @@
 use cosmwasm_std::{
     entry_point, to_binary, Addr, BankMsg, Binary, Deps, DepsMut, Env, MessageInfo, Response,
-    StdError, StdResult, Storage, SubMsg, WasmMsg,
+    StdResult, SubMsg, WasmMsg,
 };
 
 use cw2::set_contract_version;
@@ -97,7 +97,7 @@ pub fn execute_add_funds(
     balance: Balance,
     wager_id: String,
 ) -> Result<Response, ContractError> {
-    let mut wager = get_wager(deps.storage, &wager_id)?;
+    let mut wager = get_wager(&deps, &wager_id)?;
 
     if wager.user2 != "empty" || wager.user1 == info.sender {
         return Err(ContractError::AlreadyInUse {});
@@ -127,7 +127,7 @@ pub fn execute_cancel(
     info: MessageInfo,
     wager_id: String,
 ) -> Result<Response, ContractError> {
-    let wager = get_wager(deps.storage, &wager_id)?;
+    let wager = get_wager(&deps, &wager_id)?;
 
     if (info.sender != wager.user1 && info.sender != wager.arbiter) || wager.user2 != "empty" {
         Err(ContractError::Unauthorized {})
@@ -151,7 +151,7 @@ pub fn execute_send_funds(
     wager_id: String,
     winner_address: Addr,
 ) -> Result<Response, ContractError> {
-    let wager = get_wager(deps.storage, &wager_id)?;
+    let wager = get_wager(&deps, &wager_id)?;
     let state = config(deps.storage).load()?;
 
     if info.sender != state.owner {
@@ -176,8 +176,8 @@ pub fn execute_send_funds(
     }
 }
 
-fn get_wager(storage: &dyn Storage, wager_id: &str) -> Result<Wager, ContractError> {
-    match WAGERS.load(storage, wager_id) {
+fn get_wager(deps: &DepsMut, wager_id: &str) -> Result<Wager, ContractError> {
+    match WAGERS.load(deps.storage, wager_id) {
         Ok(wager) => Ok(wager),
         Err(_) => Err(ContractError::WagerDoesNotExist {}),
     }
@@ -228,10 +228,8 @@ fn query_config(deps: Deps) -> StdResult<State> {
 }
 
 fn query_wager_for_id(id: String, deps: Deps) -> StdResult<Wager> {
-    match get_wager(deps.storage, &id) {
-        Ok(wager) => Ok(wager),
-        Err(_) => Err(StdError::NotFound { kind: id }),
-    }
+    let wager = WAGERS.load(deps.storage, &id)?;
+    Ok(wager)
 }
 
 //TODO: change the names for different responses (into something different from "res")
@@ -752,7 +750,7 @@ mod tests {
                     id: invalid_id.clone(),
                 },
             );
-            assert_eq!(result, Err(StdError::NotFound { kind: invalid_id }));
+            assert!(result.is_err());
         }
     }
 }
