@@ -1,6 +1,6 @@
 use cosmwasm_std::{
     entry_point, to_binary, Addr, BankMsg, Binary, Deps, DepsMut, Env, MessageInfo, Response,
-    StdResult, SubMsg, WasmMsg,
+    StdError, StdResult, Storage, SubMsg, WasmMsg,
 };
 
 use cw2::set_contract_version;
@@ -97,7 +97,7 @@ pub fn execute_add_funds(
     balance: Balance,
     wager_id: String,
 ) -> Result<Response, ContractError> {
-    let mut wager = get_wager(&deps, &wager_id)?;
+    let mut wager = get_wager(deps.storage, &wager_id)?;
 
     if wager.user2 != "empty" || wager.user1 == info.sender {
         return Err(ContractError::AlreadyInUse {});
@@ -127,7 +127,7 @@ pub fn execute_cancel(
     info: MessageInfo,
     wager_id: String,
 ) -> Result<Response, ContractError> {
-    let wager = get_wager(&deps, &wager_id)?;
+    let wager = get_wager(deps.storage, &wager_id)?;
 
     if (info.sender != wager.user1 && info.sender != wager.arbiter) || wager.user2 != "empty" {
         Err(ContractError::Unauthorized {})
@@ -151,7 +151,7 @@ pub fn execute_send_funds(
     wager_id: String,
     winner_address: Addr,
 ) -> Result<Response, ContractError> {
-    let wager = get_wager(&deps, &wager_id)?;
+    let wager = get_wager(deps.storage, &wager_id)?;
     let state = config(deps.storage).load()?;
 
     if info.sender != state.owner {
@@ -176,8 +176,8 @@ pub fn execute_send_funds(
     }
 }
 
-fn get_wager(deps: &DepsMut, wager_id: &str) -> Result<Wager, ContractError> {
-    match WAGERS.load(deps.storage, wager_id) {
+fn get_wager(storage: &dyn Storage, wager_id: &str) -> Result<Wager, ContractError> {
+    match WAGERS.load(storage, wager_id) {
         Ok(wager) => Ok(wager),
         Err(_) => Err(ContractError::WagerDoesNotExist {}),
     }
@@ -228,8 +228,10 @@ fn query_config(deps: Deps) -> StdResult<State> {
 }
 
 fn query_wager_for_id(id: String, deps: Deps) -> StdResult<Wager> {
-    let wager = WAGERS.load(deps.storage, &id)?;
-    Ok(wager)
+    match get_wager(deps.storage, &id) {
+        Ok(wager) => Ok(wager),
+        Err(_) => Err(StdError::NotFound { kind: id }),
+    }
 }
 
 //TODO: change the names for different responses (into something different from "res")
@@ -694,6 +696,63 @@ mod tests {
                     amount: vec![coin(10, "uluna")],
                 }))
             );
+        }
+    }
+
+    mod query {
+
+        use super::super::*;
+        use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
+        use cosmwasm_std::{coins, Uint128};
+        use cw20::Cw20CoinVerified;
+
+        #[test]
+        fn test_query_wager() {
+            let info = mock_info("creator", &coins(0, "luna"));
+            let mut deps = mock_dependencies(&[]);
+
+            let coin = Cw20CoinVerified {
+                address: Addr::unchecked("cw20-token"),
+                amount: Uint128::new(100),
+            };
+
+            let wager_id = "test_id";
+
+            let wager = Wager {
+                arbiter: Addr::unchecked("empty"),
+                user1: info.sender,
+                user2: Addr::unchecked("empty"),
+                user1_balance: GenericBalance {
+                    native: vec![],
+                    cw20: vec![coin],
+                },
+                user2_balance: GenericBalance::new(),
+            };
+            WAGERS
+                .update(deps.as_mut().storage, wager_id, |existing| match existing {
+                    None => Ok(wager),
+                    Some(_) => Err(ContractError::AlreadyInUse {}),
+                })
+                .unwrap();
+
+            let result = query(
+                deps.as_ref(),
+                mock_env(),
+                QueryMsg::Wager {
+                    id: (*wager_id).to_string(),
+                },
+            );
+            assert!(result.is_ok());
+
+            let invalid_id = String::from("invalid_id");
+            let result = query(
+                deps.as_ref(),
+                mock_env(),
+                QueryMsg::Wager {
+                    id: invalid_id.clone(),
+                },
+            );
+            assert_eq!(result, Err(StdError::NotFound { kind: invalid_id }));
         }
     }
 }
