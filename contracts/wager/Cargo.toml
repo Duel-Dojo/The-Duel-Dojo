@@ -1,5 +1,5 @@
 [package]
-name = "duel-dojo"
+name = "wager"
 version = "0.1.0"
 authors = ["Vlad <vladjdk@gmail.com>"]
 edition = "2018"
