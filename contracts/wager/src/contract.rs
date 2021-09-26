@@ -746,9 +746,7 @@ mod tests {
             let result = query(
                 deps.as_ref(),
                 mock_env(),
-                QueryMsg::Wager {
-                    id: invalid_id.clone(),
-                },
+                QueryMsg::Wager { id: invalid_id },
             );
             assert!(result.is_err());
         }
