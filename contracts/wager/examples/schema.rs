@@ -3,8 +3,8 @@ use std::fs::create_dir_all;
 
 use cosmwasm_schema::{export_schema, remove_schemas, schema_for};
 
-use duel_dojo::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
-use duel_dojo::state::{GenericBalance, State, Wager};
+use wager::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
+use wager::state::{GenericBalance, State, Wager};
 
 fn main() {
     let mut out_dir = current_dir().unwrap();
