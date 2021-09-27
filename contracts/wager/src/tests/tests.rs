@@ -26,7 +26,7 @@ fn test_initialization() {
 
 #[test]
 fn test_execute_create_wager_native() {
-    let info = mock_info("creator", &coins(0, "luna"));
+    let info = mock_info("creator", &[]);
     let mut deps = mock_dependencies(&[]);
 
     let inst_msg = InstantiateMsg {
@@ -67,7 +67,7 @@ fn test_execute_create_wager_native() {
 
 #[test]
 fn test_execute_cancel_wager() {
-    let info = mock_info("creator", &coins(0, "luna"));
+    let info = mock_info("creator", &[]);
     let mut deps = mock_dependencies(&[]);
 
     let inst_msg = InstantiateMsg {
@@ -91,7 +91,7 @@ fn test_execute_cancel_wager() {
     )
     .unwrap();
 
-    let sneaky_user = mock_info("sneaky_user", &vec![]);
+    let sneaky_user = mock_info("sneaky_user", &[]);
 
     let _res_cancel_fail = execute(
         deps.as_mut(),
@@ -117,7 +117,7 @@ fn test_execute_cancel_wager() {
 
 #[test]
 fn test_execute_send_funds_native() {
-    let info = mock_info("creator", &vec![]);
+    let info = mock_info("creator", &[]);
     let mut deps = mock_dependencies(&[]);
 
     let inst_msg = InstantiateMsg {
