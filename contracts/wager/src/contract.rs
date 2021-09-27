@@ -298,56 +298,6 @@ mod tests {
         }
 
         #[test]
-        fn test_execute_cancel_wager() {
-            let info = mock_info("creator", &coins(0, "luna"));
-            let mut deps = mock_dependencies(&[]);
-
-            let inst_msg = InstantiateMsg {
-                sender: info.clone().sender,
-            };
-
-            //check if the initialization works by unwrapping
-            let _initialization_check =
-                instantiate(deps.as_mut(), mock_env(), info, inst_msg).unwrap();
-
-            let coin = Cw20CoinVerified {
-                address: Addr::unchecked("cw20-token"),
-                amount: Uint128::new(100),
-            };
-
-            let new_user = mock_info("new_user", &coins(0, "luna"));
-
-            let balance = Balance::from(coin);
-            let wager_id = "test_id";
-
-            let _res_create_wager = execute_create_wager(
-                deps.as_mut(),
-                mock_env(),
-                new_user.clone(),
-                balance,
-                String::from(wager_id),
-            )
-            .unwrap();
-
-            let sneaky_user = mock_info("sneaky_user", &coins(0, "luna"));
-
-            let _res_cancel_fail = execute_cancel(
-                deps.as_mut(),
-                mock_env(),
-                sneaky_user,
-                String::from(wager_id),
-            );
-
-            let _res_cancel_success =
-                execute_cancel(deps.as_mut(), mock_env(), new_user, String::from(wager_id))
-                    .unwrap();
-
-            let wagers = all_wager_ids(&deps.storage).unwrap();
-
-            assert_eq!(0, wagers.len());
-        }
-
-        #[test]
         fn test_execute_add_funds() {
             let info = mock_info("creator", &coins(0, "luna"));
             let mut deps = mock_dependencies(&[]);

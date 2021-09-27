@@ -24,7 +24,6 @@ fn test_initialization() {
     let config: State = from_binary(&res_query_config).unwrap();
 
     assert_eq!("creator", config.creator.as_str());
-    assert_eq!("creator", config.owner.as_str());
 }
 
 #[test]
@@ -36,7 +35,6 @@ fn test_execute_create_wager_native() {
         sender: info.clone().sender,
     };
 
-    //check if the initialization works by unwrapping
     let _initialization_check = instantiate(deps.as_mut(), mock_env(), info, inst_msg).unwrap();
 
     let wager_id = String::from("test_id");
@@ -69,4 +67,54 @@ fn test_execute_create_wager_native() {
 
     assert_eq!(test_user1_balance, wager.user1_balance);
     assert_eq!(test_user2_balance, wager.user2_balance);
+}
+
+#[test]
+fn test_execute_cancel_wager() {
+    let info = mock_info("creator", &coins(0, "luna"));
+    let mut deps = mock_dependencies(&[]);
+
+    let inst_msg = InstantiateMsg {
+        sender: info.clone().sender,
+    };
+
+    //check if the initialization works by unwrapping
+    let _initialization_check = instantiate(deps.as_mut(), mock_env(), info, inst_msg).unwrap();
+
+    let new_user = mock_info("new_user", &coins(10, "uluna"));
+
+    let wager_id = String::from("test_id");
+
+    let _res_create_wager = execute(
+        deps.as_mut(),
+        mock_env(),
+        new_user.clone(),
+        ExecuteMsg::CreateWager {
+            wager_id: wager_id.clone(),
+        },
+    )
+    .unwrap();
+
+    let sneaky_user = mock_info("sneaky_user", &coins(0, "luna"));
+
+    let _res_cancel_fail = execute(
+        deps.as_mut(),
+        mock_env(),
+        sneaky_user,
+        ExecuteMsg::Cancel {
+            wager_id: wager_id.clone(),
+        },
+    );
+    assert!(_res_cancel_fail.is_err());
+    let _res_cancel_fail = execute(
+        deps.as_mut(),
+        mock_env(),
+        new_user,
+        ExecuteMsg::Cancel {
+            wager_id: wager_id.clone(),
+        },
+    );
+
+    // wager doesn't exist.
+    assert!(query(deps.as_ref(), mock_env(), QueryMsg::Wager { id: wager_id }).is_err());
 }
