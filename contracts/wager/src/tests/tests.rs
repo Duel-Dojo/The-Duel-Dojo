@@ -1,10 +1,8 @@
 use crate::contract::{execute, instantiate, query};
-use crate::error::ContractError;
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
 use crate::state::{GenericBalance, State, Wager};
 use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
-use cosmwasm_std::{coins, from_binary};
-use cw20::Balance;
+use cosmwasm_std::{coin, coins, from_binary, BankMsg, CosmosMsg, StdError, SubMsg};
 
 #[test]
 fn test_initialization() {
@@ -117,4 +115,97 @@ fn test_execute_cancel_wager() {
 
     // wager doesn't exist.
     assert!(query(deps.as_ref(), mock_env(), QueryMsg::Wager { id: wager_id }).is_err());
+}
+
+#[test]
+fn test_execute_send_funds_native() {
+    let info = mock_info("creator", &coins(0, "luna"));
+    let mut deps = mock_dependencies(&[]);
+
+    let inst_msg = InstantiateMsg {
+        sender: info.clone().sender,
+    };
+
+    //check if the initialization works by unwrapping
+    let _initialization_check =
+        instantiate(deps.as_mut(), mock_env(), info.clone(), inst_msg).unwrap();
+
+    let new_user = mock_info("new_user", &coins(10, "uluna"));
+
+    let wager_id = String::from("test_id");
+
+    let _res_create_wager = execute(
+        deps.as_mut(),
+        mock_env(),
+        new_user.clone(),
+        ExecuteMsg::CreateWager {
+            wager_id: wager_id.clone(),
+        },
+    )
+    .unwrap();
+
+    let new_user2 = mock_info("new_user2", &coins(10, "uluna"));
+
+    let _res_add_funds = execute(
+        deps.as_mut(),
+        mock_env(),
+        new_user2,
+        ExecuteMsg::AddFunds {
+            wager_id: wager_id.clone(),
+        },
+    );
+
+    let res_query_wager = query(
+        deps.as_ref(),
+        mock_env(),
+        QueryMsg::Wager {
+            id: wager_id.clone(),
+        },
+    )
+    .unwrap();
+
+    let wager_result: Result<Wager, StdError> = from_binary(&res_query_wager);
+    assert!(wager_result.is_ok());
+
+    let res_send_funds_fail = execute(
+        deps.as_mut(),
+        mock_env(),
+        new_user.clone(),
+        ExecuteMsg::SendFunds {
+            wager_id: wager_id.clone(),
+            winner_address: new_user.sender.clone(),
+        },
+    );
+
+    assert!(res_send_funds_fail.is_err());
+
+    let res_send_funds_success = execute(
+        deps.as_mut(),
+        mock_env(),
+        info,
+        ExecuteMsg::SendFunds {
+            wager_id: wager_id.clone(),
+            winner_address: new_user.sender.clone(),
+        },
+    )
+    .unwrap();
+
+    // Wager was cancelled.
+    assert!(query(deps.as_ref(), mock_env(), QueryMsg::Wager { id: wager_id }).is_err());
+
+    assert_eq!(
+        res_send_funds_success.messages[0],
+        SubMsg::new(CosmosMsg::Bank(BankMsg::Send {
+            to_address: String::from(new_user.sender.clone()),
+            amount: vec![coin(10, "uluna")],
+        }))
+    );
+
+    assert_eq!(
+        res_send_funds_success.messages[1],
+        SubMsg::new(CosmosMsg::Bank(BankMsg::Send {
+            to_address: String::from(new_user.sender),
+            amount: vec![coin(10, "uluna")],
+        }))
+    );
 }
