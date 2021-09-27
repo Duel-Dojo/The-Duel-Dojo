@@ -2,7 +2,7 @@ use crate::contract::{execute, instantiate, query};
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
 use crate::state::{GenericBalance, State, Wager};
 use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
-use cosmwasm_std::{coin, coins, from_binary, BankMsg, CosmosMsg, StdError, SubMsg};
+use cosmwasm_std::{coin, coins, from_binary, BankMsg, CosmosMsg, SubMsg};
 
 #[test]
 fn test_initialization() {
@@ -14,8 +14,8 @@ fn test_initialization() {
     };
 
     //check if the initialization works by unwrapping
-    let _initialization_check = instantiate(deps.as_mut(), mock_env(), info, inst_msg).unwrap();
-    assert_eq!(0, _initialization_check.messages.len());
+    let initialization_check = instantiate(deps.as_mut(), mock_env(), info, inst_msg).unwrap();
+    assert_eq!(0, initialization_check.messages.len());
 
     //check if state matches sender
     let res_query_config = query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap();
@@ -61,10 +61,8 @@ fn test_execute_create_wager_native() {
         cw20: vec![],
     };
 
-    let test_user2_balance = GenericBalance::new();
-
     assert_eq!(test_user1_balance, wager.user1_balance);
-    assert_eq!(test_user2_balance, wager.user2_balance);
+    assert_eq!(GenericBalance::new(), wager.user2_balance);
 }
 
 #[test]
@@ -93,7 +91,7 @@ fn test_execute_cancel_wager() {
     )
     .unwrap();
 
-    let sneaky_user = mock_info("sneaky_user", &coins(0, "luna"));
+    let sneaky_user = mock_info("sneaky_user", &vec![]);
 
     let _res_cancel_fail = execute(
         deps.as_mut(),
@@ -119,7 +117,7 @@ fn test_execute_cancel_wager() {
 
 #[test]
 fn test_execute_send_funds_native() {
-    let info = mock_info("creator", &coins(0, "luna"));
+    let info = mock_info("creator", &vec![]);
     let mut deps = mock_dependencies(&[]);
 
     let inst_msg = InstantiateMsg {
@@ -154,18 +152,6 @@ fn test_execute_send_funds_native() {
             wager_id: wager_id.clone(),
         },
     );
-
-    let res_query_wager = query(
-        deps.as_ref(),
-        mock_env(),
-        QueryMsg::Wager {
-            id: wager_id.clone(),
-        },
-    )
-    .unwrap();
-
-    let wager_result: Result<Wager, StdError> = from_binary(&res_query_wager);
-    assert!(wager_result.is_ok());
 
     let res_send_funds_fail = execute(
         deps.as_mut(),
