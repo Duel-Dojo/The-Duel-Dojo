@@ -237,82 +237,12 @@ fn query_wager_for_id(id: String, deps: Deps) -> StdResult<Wager> {
 #[cfg(test)]
 mod tests {
 
-    mod instantiate {
-        use super::super::*;
-        use cosmwasm_std::coins;
-        use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
-
-        #[test]
-        fn test_initialization() {
-            let info = mock_info("creator", &coins(0, "luna"));
-            let mut deps = mock_dependencies(&[]);
-
-            let inst_msg = InstantiateMsg {
-                sender: info.clone().sender,
-            };
-
-            //check if the initialization works by unwrapping
-            let _initialization_check =
-                instantiate(deps.as_mut(), mock_env(), info, inst_msg).unwrap();
-
-            //check if state matches sender
-            let res_query_config = query_config(deps.as_ref()).unwrap();
-            assert_eq!("creator", res_query_config.creator.as_str());
-            assert_eq!("creator", res_query_config.owner.as_str());
-        }
-    }
-
     mod execute {
         use super::super::*;
         use crate::state::all_wager_ids;
         use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
         use cosmwasm_std::{coin, coins, CosmosMsg, Uint128};
         use cw20::Cw20CoinVerified;
-
-        #[test]
-        fn test_execute_create_wager_native() {
-            let info = mock_info("creator", &coins(0, "luna"));
-            let mut deps = mock_dependencies(&[]);
-
-            let inst_msg = InstantiateMsg {
-                sender: info.clone().sender,
-            };
-
-            //check if the initialization works by unwrapping
-            let _initialization_check =
-                instantiate(deps.as_mut(), mock_env(), info, inst_msg).unwrap();
-
-            let balance = Balance::from(coins(10, "uluna"));
-            let wager_id = "test_id";
-            let new_user = mock_info("new_user", &coins(0, "luna"));
-
-            let _res_create_wager = execute_create_wager(
-                deps.as_mut(),
-                mock_env(),
-                new_user,
-                balance,
-                wager_id.parse().unwrap(),
-            )
-            .unwrap();
-
-            let wagers = all_wager_ids(&deps.storage).unwrap();
-            let wager = query_wager_for_id(String::from(wager_id), deps.as_ref()).unwrap();
-
-            assert_eq!(1, wagers.len());
-            assert_eq!("creator", wager.arbiter);
-            assert_eq!("new_user", wager.user1);
-            assert_eq!("empty", wager.user2);
-
-            let test_user1_balance = GenericBalance {
-                native: coins(10, "uluna"),
-                cw20: vec![],
-            };
-
-            let test_user2_balance = GenericBalance::new();
-
-            assert_eq!(test_user1_balance, wager.user1_balance);
-            assert_eq!(test_user2_balance, wager.user2_balance);
-        }
 
         #[test]
         fn test_execute_create_wager_cw20() {
