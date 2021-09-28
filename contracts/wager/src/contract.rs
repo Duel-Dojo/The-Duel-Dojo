@@ -41,7 +41,7 @@ pub fn execute(
         //DUEL DOJO FUNCTIONS
         ExecuteMsg::Receive(msg) => receive_cw20(deps, env, info, msg),
         ExecuteMsg::CreateWager { wager_id } => {
-            execute_create_wager(deps, env, info.clone(), Balance::from(info.funds), wager_id)
+            execute_create_wager(deps, env, info.sender, Balance::from(info.funds), wager_id)
         }
         ExecuteMsg::AddFunds { wager_id } => {
             execute_add_funds(deps, env, info.clone(), Balance::from(info.funds), wager_id)
@@ -60,6 +60,8 @@ pub fn receive_cw20(
     info: MessageInfo,
     cw20_msg: Cw20ReceiveMsg,
 ) -> Result<Response, ContractError> {
+    // Note: info.sender is the address of the contract as the contract makes this call and
+    //       cw20_msg.sender is the user who sent it.
     //TODO: Add validation of allowed CW20s here by checking info.sender.
     let coin = Cw20CoinVerified {
         address: info.sender.clone(),
@@ -67,7 +69,14 @@ pub fn receive_cw20(
     };
     match from_binary(&cw20_msg.msg) {
         Ok(Cw20HookMsg::CreateWager { wager_id }) => {
-            execute_create_wager(deps, env, info, Balance::from(coin), wager_id)
+            let api = deps.api;
+            execute_create_wager(
+                deps,
+                env,
+                api.addr_validate(&cw20_msg.sender)?,
+                Balance::from(coin),
+                wager_id,
+            )
         }
         Ok(Cw20HookMsg::AddFunds { wager_id }) => {
             execute_add_funds(deps, env, info, Balance::from(coin), wager_id)
@@ -79,7 +88,7 @@ pub fn receive_cw20(
 pub fn execute_create_wager(
     deps: DepsMut,
     _env: Env,
-    info: MessageInfo,
+    sender: Addr,
     balance: Balance,
     wager_id: String,
 ) -> Result<Response, ContractError> {
@@ -98,7 +107,7 @@ pub fn execute_create_wager(
 
     let wager = Wager {
         arbiter: state.owner,
-        user1: info.sender,
+        user1: sender,
         user2: Addr::unchecked("empty"),
         user1_balance,
         user2_balance: GenericBalance::new(),
@@ -255,6 +264,7 @@ fn query_wager_for_id(id: String, deps: Deps) -> StdResult<Wager> {
     Ok(wager)
 }
 
+/*
 //TODO: change the names for different responses (into something different from "res")
 //TODO: add assertions in all tests
 #[cfg(test)]
@@ -519,4 +529,4 @@ mod tests {
             );
         }
     }
-}
+}*/
