@@ -14,20 +14,22 @@ pub struct InstantiateMsg {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ExecuteMsg {
-    Receive(Cw20ReceiveMsg),
     //DUEL DOJO NEW FUNCTIONS
-    // Creates an instance of the escrow and adds funds from User 1.
+    // Reacts to the event of CW20 tokens being sent to this contract for creating wagers
+    // and adding funds to wagers.
+    Receive(Cw20ReceiveMsg),
+    // Creates an instance of the escrow and adds native funds from User 1.
     // Creates an escrow ID that can later be referenced. Sets User 1
     // cancel permissions by adding wallet address to the escrow information bucket.
-    CreateWager {
+    CreateWagerNative {
         wager_id: String,
     },
 
-    // Adds funds into an existing escrow using an escrow ID.
+    // Adds native funds into an existing escrow using an escrow ID.
     // Removes User 1 from cancel permissions by removing wallet
     // address from the escrow information bucket. At this point,
     // the escrow is not cancellable.
-    AddFunds {
+    AddFundsNative {
         wager_id: String,
     },
 

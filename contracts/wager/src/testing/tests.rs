@@ -45,7 +45,7 @@ fn test_execute_create_wager_native() {
         deps.as_mut(),
         mock_env(),
         new_user,
-        ExecuteMsg::CreateWager {
+        ExecuteMsg::CreateWagerNative {
             wager_id: wager_id.clone(),
         },
     )
@@ -224,7 +224,7 @@ fn test_execute_cancel_wager() {
         deps.as_mut(),
         mock_env(),
         new_user.clone(),
-        ExecuteMsg::CreateWager {
+        ExecuteMsg::CreateWagerNative {
             wager_id: wager_id.clone(),
         },
     )
@@ -275,7 +275,7 @@ fn test_execute_send_funds_native() {
         deps.as_mut(),
         mock_env(),
         new_user.clone(),
-        ExecuteMsg::CreateWager {
+        ExecuteMsg::CreateWagerNative {
             wager_id: wager_id.clone(),
         },
     )
@@ -287,7 +287,7 @@ fn test_execute_send_funds_native() {
         deps.as_mut(),
         mock_env(),
         new_user2,
-        ExecuteMsg::AddFunds {
+        ExecuteMsg::AddFundsNative {
             wager_id: wager_id.clone(),
         },
     );
@@ -415,21 +415,12 @@ fn test_execute_send_funds_cw20() {
         amount: Uint128::new(100),
     };
 
-    assert_eq!(
-        res_send_funds_success.messages[0],
-        SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: String::from("cw20-token"),
-            msg: to_binary(&send_msg).unwrap(),
-            funds: vec![],
-        }))
-    );
+    let expected_msg = SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+        contract_addr: String::from("cw20-token"),
+        msg: to_binary(&send_msg).unwrap(),
+        funds: vec![],
+    }));
 
-    assert_eq!(
-        res_send_funds_success.messages[1],
-        SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: String::from("cw20-token"),
-            msg: to_binary(&send_msg).unwrap(),
-            funds: vec![],
-        }))
-    );
+    assert_eq!(res_send_funds_success.messages[0], expected_msg);
+    assert_eq!(res_send_funds_success.messages[1], expected_msg);
 }

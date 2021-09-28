@@ -40,10 +40,10 @@ pub fn execute(
     match msg {
         //DUEL DOJO FUNCTIONS
         ExecuteMsg::Receive(msg) => receive_cw20(deps, env, info, msg),
-        ExecuteMsg::CreateWager { wager_id } => {
+        ExecuteMsg::CreateWagerNative { wager_id } => {
             execute_create_wager(deps, env, info.sender, Balance::from(info.funds), wager_id)
         }
-        ExecuteMsg::AddFunds { wager_id } => {
+        ExecuteMsg::AddFundsNative { wager_id } => {
             execute_add_funds(deps, env, info.sender, Balance::from(info.funds), wager_id)
         }
         ExecuteMsg::Cancel { wager_id } => execute_cancel(deps, env, info, wager_id),
@@ -60,8 +60,8 @@ pub fn receive_cw20(
     info: MessageInfo,
     cw20_msg: Cw20ReceiveMsg,
 ) -> Result<Response, ContractError> {
-    // Note: info.sender is the address of the contract as the contract makes this call and
-    //       cw20_msg.sender is the user who sent it.
+    // Note: info.sender is the address of the token contract as the contract makes this call and
+    //       cw20_msg.sender is the user who initiated the send of tokens call.
     //TODO: Add validation of allowed CW20s here by checking info.sender.
     let coin = Cw20CoinVerified {
         address: info.sender.clone(),
