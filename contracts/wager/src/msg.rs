@@ -49,7 +49,9 @@ pub enum ExecuteMsg {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum Cw20HookMsg {
+    // Creates a wager with the sent CW20 tokens.
     CreateWager { wager_id: String },
+    // Adds funds to a wager with the sent CW20 tokens.
     AddFunds { wager_id: String },
 }
 

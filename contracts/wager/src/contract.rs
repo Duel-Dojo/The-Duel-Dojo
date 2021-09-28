@@ -64,7 +64,7 @@ pub fn receive_cw20(
     //       cw20_msg.sender is the user who initiated the send of tokens call.
     //TODO: Add validation of allowed CW20s here by checking info.sender.
     let coin = Cw20CoinVerified {
-        address: info.sender.clone(),
+        address: info.sender,
         amount: cw20_msg.amount,
     };
     match from_binary(&cw20_msg.msg) {
