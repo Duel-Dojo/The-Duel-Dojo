@@ -117,6 +117,7 @@ fn test_execute_create_wager_cw20() {
 }
 
 #[test]
+
 fn test_execute_cancel_wager() {
     let info = mock_info("creator", &[]);
     let mut deps = mock_dependencies(&[]);
