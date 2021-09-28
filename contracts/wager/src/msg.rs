@@ -1,3 +1,4 @@
+use cw20::Cw20ReceiveMsg;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -13,6 +14,7 @@ pub struct InstantiateMsg {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ExecuteMsg {
+    Receive(Cw20ReceiveMsg),
     //DUEL DOJO NEW FUNCTIONS
     // Creates an instance of the escrow and adds funds from User 1.
     // Creates an escrow ID that can later be referenced. Sets User 1
@@ -40,6 +42,13 @@ pub enum ExecuteMsg {
         wager_id: String,
         winner_address: Addr,
     },
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum Cw20HookMsg {
+    CreateWager { wager_id: String },
+    AddFunds { wager_id: String },
 }
 
 pub fn is_valid_name(name: &str) -> bool {

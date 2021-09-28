@@ -1,13 +1,13 @@
 use cosmwasm_std::{
-    entry_point, to_binary, Addr, BankMsg, Binary, Deps, DepsMut, Env, MessageInfo, Response,
-    StdResult, SubMsg, WasmMsg,
+    entry_point, from_binary, to_binary, Addr, BankMsg, Binary, Deps, DepsMut, Env, MessageInfo,
+    Response, StdResult, SubMsg, WasmMsg,
 };
 
 use cw2::set_contract_version;
-use cw20::{Balance, Cw20ExecuteMsg};
+use cw20::{Balance, Cw20CoinVerified, Cw20ExecuteMsg, Cw20ReceiveMsg};
 
 use crate::error::ContractError;
-use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
+use crate::msg::{Cw20HookMsg, ExecuteMsg, InstantiateMsg, QueryMsg};
 use crate::state::{config, config_read, GenericBalance, State, Wager, WAGERS};
 
 // version info for migration info
@@ -39,6 +39,7 @@ pub fn execute(
 ) -> Result<Response, ContractError> {
     match msg {
         //DUEL DOJO FUNCTIONS
+        ExecuteMsg::Receive(msg) => receive_cw20(deps, env, info, msg),
         ExecuteMsg::CreateWager { wager_id } => {
             execute_create_wager(deps, env, info.clone(), Balance::from(info.funds), wager_id)
         }
@@ -50,6 +51,28 @@ pub fn execute(
             wager_id,
             winner_address,
         } => execute_send_funds(deps, env, info, wager_id, winner_address),
+    }
+}
+
+pub fn receive_cw20(
+    deps: DepsMut,
+    env: Env,
+    info: MessageInfo,
+    cw20_msg: Cw20ReceiveMsg,
+) -> Result<Response, ContractError> {
+    //TODO: Add validation of allowed CW20s here by checking info.sender.
+    let coin = Cw20CoinVerified {
+        address: info.sender.clone(),
+        amount: cw20_msg.amount,
+    };
+    match from_binary(&cw20_msg.msg) {
+        Ok(Cw20HookMsg::CreateWager { wager_id }) => {
+            execute_create_wager(deps, env, info, Balance::from(coin), wager_id)
+        }
+        Ok(Cw20HookMsg::AddFunds { wager_id }) => {
+            execute_add_funds(deps, env, info, Balance::from(coin), wager_id)
+        }
+        Err(_) => Err(ContractError::DataShouldBeGiven {}),
     }
 }
 

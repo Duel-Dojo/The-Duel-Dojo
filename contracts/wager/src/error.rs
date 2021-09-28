@@ -32,4 +32,7 @@ pub enum ContractError {
 
     #[error("Unknown contract error")]
     UnknownError {},
+
+    #[error("Data should be given")]
+    DataShouldBeGiven {},
 }
