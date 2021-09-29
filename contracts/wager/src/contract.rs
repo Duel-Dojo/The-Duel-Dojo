@@ -1,13 +1,13 @@
 use cosmwasm_std::{
-    entry_point, to_binary, Addr, BankMsg, Binary, Deps, DepsMut, Env, MessageInfo, Response,
-    StdResult, SubMsg, WasmMsg,
+    entry_point, from_binary, to_binary, Addr, BankMsg, Binary, Deps, DepsMut, Env, MessageInfo,
+    Response, StdResult, SubMsg, WasmMsg,
 };
 
 use cw2::set_contract_version;
-use cw20::{Balance, Cw20ExecuteMsg};
+use cw20::{Balance, Cw20CoinVerified, Cw20ExecuteMsg, Cw20ReceiveMsg};
 
 use crate::error::ContractError;
-use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
+use crate::msg::{Cw20HookMsg, ExecuteMsg, InstantiateMsg, QueryMsg};
 use crate::state::{config, config_read, GenericBalance, State, Wager, WAGERS};
 
 // version info for migration info
@@ -39,11 +39,12 @@ pub fn execute(
 ) -> Result<Response, ContractError> {
     match msg {
         //DUEL DOJO FUNCTIONS
-        ExecuteMsg::CreateWager { wager_id } => {
-            execute_create_wager(deps, env, info.clone(), Balance::from(info.funds), wager_id)
+        ExecuteMsg::Receive(msg) => receive_cw20(deps, env, info, msg),
+        ExecuteMsg::CreateWagerNative { wager_id } => {
+            execute_create_wager(deps, env, info.sender, Balance::from(info.funds), wager_id)
         }
-        ExecuteMsg::AddFunds { wager_id } => {
-            execute_add_funds(deps, env, info.clone(), Balance::from(info.funds), wager_id)
+        ExecuteMsg::AddFundsNative { wager_id } => {
+            execute_add_funds(deps, env, info.sender, Balance::from(info.funds), wager_id)
         }
         ExecuteMsg::Cancel { wager_id } => execute_cancel(deps, env, info, wager_id),
         ExecuteMsg::SendFunds {
@@ -53,10 +54,48 @@ pub fn execute(
     }
 }
 
+pub fn receive_cw20(
+    deps: DepsMut,
+    env: Env,
+    info: MessageInfo,
+    cw20_msg: Cw20ReceiveMsg,
+) -> Result<Response, ContractError> {
+    // Note: info.sender is the address of the token contract as the contract makes this call and
+    //       cw20_msg.sender is the user who initiated the send of tokens call.
+    //TODO: Add validation of allowed CW20s here by checking info.sender.
+    let coin = Cw20CoinVerified {
+        address: info.sender,
+        amount: cw20_msg.amount,
+    };
+    match from_binary(&cw20_msg.msg) {
+        Ok(Cw20HookMsg::CreateWager { wager_id }) => {
+            let api = deps.api;
+            execute_create_wager(
+                deps,
+                env,
+                api.addr_validate(&cw20_msg.sender)?,
+                Balance::from(coin),
+                wager_id,
+            )
+        }
+        Ok(Cw20HookMsg::AddFunds { wager_id }) => {
+            let api = deps.api;
+            execute_add_funds(
+                deps,
+                env,
+                api.addr_validate(&cw20_msg.sender)?,
+                Balance::from(coin),
+                wager_id,
+            )
+        }
+        Err(_) => Err(ContractError::DataShouldBeGiven {}),
+    }
+}
+
 pub fn execute_create_wager(
     deps: DepsMut,
     _env: Env,
-    info: MessageInfo,
+    sender: Addr,
     balance: Balance,
     wager_id: String,
 ) -> Result<Response, ContractError> {
@@ -75,7 +114,7 @@ pub fn execute_create_wager(
 
     let wager = Wager {
         arbiter: state.owner,
-        user1: info.sender,
+        user1: sender,
         user2: Addr::unchecked("empty"),
         user1_balance,
         user2_balance: GenericBalance::new(),
@@ -93,18 +132,18 @@ pub fn execute_create_wager(
 pub fn execute_add_funds(
     deps: DepsMut,
     _env: Env,
-    info: MessageInfo,
+    sender: Addr,
     balance: Balance,
     wager_id: String,
 ) -> Result<Response, ContractError> {
     let mut wager = get_wager(&deps, &wager_id)?;
 
-    if wager.user2 != "empty" || wager.user1 == info.sender {
+    if wager.user2 != "empty" || wager.user1 == sender {
         return Err(ContractError::AlreadyInUse {});
     }
 
     wager.user2_balance.add_tokens(balance);
-    wager.user2 = info.sender;
+    wager.user2 = sender;
 
     if wager.user2_balance != wager.user1_balance {
         return Err(ContractError::UnequalBalance {});
@@ -230,270 +269,4 @@ fn query_config(deps: Deps) -> StdResult<State> {
 fn query_wager_for_id(id: String, deps: Deps) -> StdResult<Wager> {
     let wager = WAGERS.load(deps.storage, &id)?;
     Ok(wager)
-}
-
-//TODO: change the names for different responses (into something different from "res")
-//TODO: add assertions in all tests
-#[cfg(test)]
-mod tests {
-
-    mod execute {
-        use super::super::*;
-        use crate::state::all_wager_ids;
-        use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
-        use cosmwasm_std::{coins, CosmosMsg, Uint128};
-        use cw20::Cw20CoinVerified;
-
-        #[test]
-        fn test_execute_create_wager_cw20() {
-            let info = mock_info("creator", &coins(0, "luna"));
-            let mut deps = mock_dependencies(&[]);
-
-            let inst_msg = InstantiateMsg {
-                sender: info.clone().sender,
-            };
-
-            //check if the initialization works by unwrapping
-            let _initialization_check =
-                instantiate(deps.as_mut(), mock_env(), info, inst_msg).unwrap();
-
-            let coin = Cw20CoinVerified {
-                address: Addr::unchecked("cw20-token"),
-                amount: Uint128::new(100),
-            };
-
-            let new_user = mock_info("new_user", &coins(0, "luna"));
-
-            let balance = Balance::from(coin);
-            let wager_id = "test_id";
-
-            let _res_create_wager = execute_create_wager(
-                deps.as_mut(),
-                mock_env(),
-                new_user,
-                balance,
-                String::from(wager_id),
-            )
-            .unwrap();
-            let wagers = all_wager_ids(&deps.storage).unwrap();
-            let wager = query_wager_for_id("test_id".parse().unwrap(), deps.as_ref()).unwrap();
-
-            assert_eq!(1, wagers.len());
-            assert_eq!("creator", wager.arbiter);
-            assert_eq!("new_user", wager.user1);
-            assert_eq!("empty", wager.user2);
-
-            let test_user1_balance = GenericBalance {
-                native: vec![],
-                cw20: vec![Cw20CoinVerified {
-                    address: Addr::unchecked("cw20-token"),
-                    amount: Uint128::new(100),
-                }],
-            };
-
-            let test_user2_balance = GenericBalance::new();
-
-            assert_eq!(test_user1_balance, wager.user1_balance);
-            assert_eq!(test_user2_balance, wager.user2_balance);
-        }
-
-        #[test]
-        fn test_execute_add_funds() {
-            let info = mock_info("creator", &coins(0, "luna"));
-            let mut deps = mock_dependencies(&[]);
-
-            let inst_msg = InstantiateMsg {
-                sender: info.clone().sender,
-            };
-
-            //check if the initialization works by unwrapping
-            let _initialization_check =
-                instantiate(deps.as_mut(), mock_env(), info, inst_msg).unwrap();
-
-            let coin = Cw20CoinVerified {
-                address: Addr::unchecked("cw20-token"),
-                amount: Uint128::new(100),
-            };
-
-            let new_user = mock_info("new_user", &coins(0, "luna"));
-
-            let balance = Balance::from(coin);
-            let wager_id = "test_id";
-
-            let _res = execute_create_wager(
-                deps.as_mut(),
-                mock_env(),
-                new_user,
-                balance,
-                String::from(wager_id),
-            )
-            .unwrap();
-
-            let coin2 = Cw20CoinVerified {
-                address: Addr::unchecked("cw20-token"),
-                amount: Uint128::new(99),
-            };
-
-            let balance2 = Balance::from(coin2);
-
-            let new_user2 = mock_info("new_user2", &coins(0, "luna"));
-
-            let _res_add_funds_unsuccessfully = execute_add_funds(
-                //adding funds from user2 with unequal balance
-                deps.as_mut(),
-                mock_env(),
-                new_user2.clone(),
-                balance2,
-                String::from(wager_id),
-            );
-
-            let wager = query_wager_for_id(String::from(wager_id), deps.as_ref()).unwrap();
-            let wagers = all_wager_ids(&deps.storage).unwrap();
-
-            assert_eq!(1, wagers.len());
-            assert_eq!("creator", wager.arbiter);
-            assert_eq!("new_user", wager.user1);
-            assert_eq!("empty", wager.user2);
-
-            let test_user1_balance = GenericBalance {
-                native: vec![],
-                cw20: vec![Cw20CoinVerified {
-                    address: Addr::unchecked("cw20-token"),
-                    amount: Uint128::new(100),
-                }],
-            };
-
-            let test_user2_balance = GenericBalance::new();
-
-            assert_eq!(test_user1_balance, wager.user1_balance);
-            assert_eq!(test_user2_balance, wager.user2_balance);
-
-            let coin3 = Cw20CoinVerified {
-                address: Addr::unchecked("cw20-token"),
-                amount: Uint128::new(100),
-            };
-
-            let balance3 = Balance::from(coin3);
-            let _res_successfully_add_funds = execute_add_funds(
-                deps.as_mut(),
-                mock_env(),
-                new_user2,
-                balance3,
-                String::from(wager_id),
-            );
-
-            let wager = query_wager_for_id(String::from(wager_id), deps.as_ref()).unwrap();
-
-            let test_user2_balance = GenericBalance {
-                native: vec![],
-                cw20: vec![Cw20CoinVerified {
-                    address: Addr::unchecked("cw20-token"),
-                    amount: Uint128::new(100),
-                }],
-            };
-            assert_eq!(1, wagers.len());
-            assert_eq!("creator", wager.arbiter);
-            assert_eq!("new_user", wager.user1);
-            assert_eq!("new_user2", wager.user2);
-            assert_eq!(test_user1_balance, wager.user1_balance);
-            assert_eq!(test_user2_balance, wager.user2_balance);
-            assert_eq!(wager.user1_balance, wager.user2_balance);
-        }
-
-        #[test]
-        fn test_execute_send_funds_cw20() {
-            let info = mock_info("creator", &coins(0, "luna"));
-            let mut deps = mock_dependencies(&[]);
-
-            let inst_msg = InstantiateMsg {
-                sender: info.clone().sender,
-            };
-
-            //check if the initialization works by unwrapping
-            let _initialization_check =
-                instantiate(deps.as_mut(), mock_env(), info.clone(), inst_msg).unwrap();
-
-            let coin_test = Cw20CoinVerified {
-                address: Addr::unchecked("cw20-token"),
-                amount: Uint128::new(100),
-            };
-
-            let new_user = mock_info("new_user", &coins(0, "luna"));
-
-            let balance = Balance::from(coin_test);
-            let wager_id = "test_id";
-
-            let _res_create_wager = execute_create_wager(
-                deps.as_mut(),
-                mock_env(),
-                new_user.clone(),
-                balance,
-                String::from(wager_id),
-            )
-            .unwrap();
-
-            let coin2 = Cw20CoinVerified {
-                address: Addr::unchecked("cw20-token"),
-                amount: Uint128::new(100),
-            };
-
-            let balance2 = Balance::from(coin2);
-
-            let new_user2 = mock_info("new_user2", &coins(0, "luna"));
-
-            let _res_add_funds = execute_add_funds(
-                deps.as_mut(),
-                mock_env(),
-                new_user2,
-                balance2,
-                String::from(wager_id),
-            );
-
-            let _wager = query_wager_for_id("test_id".parse().unwrap(), deps.as_ref());
-
-            let _res_send_funds_fail = execute_send_funds(
-                deps.as_mut(),
-                mock_env(),
-                new_user.clone(),
-                String::from(wager_id),
-                new_user.clone().sender,
-            );
-
-            let res_send_funds_success = execute_send_funds(
-                deps.as_mut(),
-                mock_env(),
-                info,
-                String::from(wager_id),
-                new_user.sender.clone(),
-            )
-            .unwrap();
-
-            let _wager = query_wager_for_id("test_id".parse().unwrap(), deps.as_ref());
-            let wagers = all_wager_ids(&deps.storage).unwrap();
-
-            let send_msg = Cw20ExecuteMsg::Transfer {
-                recipient: String::from(new_user.sender),
-                amount: Uint128::new(100),
-            };
-
-            assert_eq!(0, wagers.len());
-            assert_eq!(
-                res_send_funds_success.messages[0],
-                SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
-                    contract_addr: String::from("cw20-token"),
-                    msg: to_binary(&send_msg).unwrap(),
-                    funds: vec![],
-                }))
-            );
-
-            assert_eq!(
-                res_send_funds_success.messages[1],
-                SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
-                    contract_addr: String::from("cw20-token"),
-                    msg: to_binary(&send_msg).unwrap(),
-                    funds: vec![],
-                }))
-            );
-        }
-    }
 }
